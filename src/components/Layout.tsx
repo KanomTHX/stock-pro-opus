@@ -7,6 +7,9 @@ import {
   LayoutDashboard,
   Package,
   Building2,
+  PackagePlus,
+  PackageMinus,
+  ArrowRightLeft,
   LogOut,
   Menu,
   X,
@@ -74,6 +77,9 @@ const Layout = () => {
     { icon: LayoutDashboard, label: "แดชบอร์ด", path: "/dashboard" },
     { icon: Package, label: "สินค้า", path: "/products" },
     { icon: Building2, label: "สาขา", path: "/branches" },
+    { icon: PackagePlus, label: "รับสินค้า", path: "/grn" },
+    { icon: PackageMinus, label: "เบิกสินค้า", path: "/gi" },
+    { icon: ArrowRightLeft, label: "โอนสินค้า", path: "/transfer" },
   ];
 
   return (

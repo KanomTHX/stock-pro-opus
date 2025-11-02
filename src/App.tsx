@@ -8,6 +8,9 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Products from "./pages/Products";
 import Branches from "./pages/Branches";
+import GRN from "./pages/GRN";
+import GI from "./pages/GI";
+import Transfer from "./pages/Transfer";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +28,9 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/products" element={<Products />} />
             <Route path="/branches" element={<Branches />} />
+            <Route path="/grn" element={<GRN />} />
+            <Route path="/gi" element={<GI />} />
+            <Route path="/transfer" element={<Transfer />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
