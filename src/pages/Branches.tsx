@@ -2,8 +2,14 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Phone, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Building2, Phone, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 
 interface Branch {
   id: string;
@@ -17,6 +23,13 @@ interface Branch {
 const Branches = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newBranch, setNewBranch] = useState({
+    name: "",
+    code: "",
+    phone: "",
+    address: "",
+  });
 
   useEffect(() => {
     fetchBranches();
@@ -41,16 +54,127 @@ const Branches = () => {
     }
   };
 
+  const createBranch = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("branches")
+        .insert([{
+          name: newBranch.name,
+          code: newBranch.code,
+          phone: newBranch.phone || null,
+          address: newBranch.address || null,
+          is_active: true,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("สร้างสาขาเรียบร้อย");
+      fetchBranches();
+      setDialogOpen(false);
+      setNewBranch({
+        name: "",
+        code: "",
+        phone: "",
+        address: "",
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
+    },
+  });
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gradient-primary">
-          สาขาทั้งหมด
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          รายการสาขาในระบบ
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gradient-primary">
+            สาขาทั้งหมด
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            รายการสาขาในระบบ
+          </p>
+        </div>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              เพิ่มสาขา
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>เพิ่มสาขาใหม่</DialogTitle>
+              <DialogDescription>กรอกข้อมูลสาขา</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="branch-name">ชื่อสาขา *</Label>
+                <Input
+                  id="branch-name"
+                  value={newBranch.name}
+                  onChange={(e) => setNewBranch({ ...newBranch, name: e.target.value })}
+                  placeholder="ชื่อสาขา"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branch-code">รหัสสาขา *</Label>
+                <Input
+                  id="branch-code"
+                  value={newBranch.code}
+                  onChange={(e) => setNewBranch({ ...newBranch, code: e.target.value })}
+                  placeholder="BR001"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branch-phone">เบอร์โทรศัพท์</Label>
+                <Input
+                  id="branch-phone"
+                  value={newBranch.phone}
+                  onChange={(e) => setNewBranch({ ...newBranch, phone: e.target.value })}
+                  placeholder="02-xxx-xxxx"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="branch-address">ที่อยู่</Label>
+                <Textarea
+                  id="branch-address"
+                  value={newBranch.address}
+                  onChange={(e) => setNewBranch({ ...newBranch, address: e.target.value })}
+                  placeholder="ที่อยู่สาขา"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDialogOpen(false)}
+                >
+                  ยกเลิก
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!newBranch.name || !newBranch.code) {
+                      toast.error("กรุณากรอกชื่อและรหัสสาขา");
+                      return;
+                    }
+                    createBranch.mutate();
+                  }}
+                  disabled={createBranch.isPending}
+                >
+                  {createBranch.isPending ? "กำลังบันทึก..." : "บันทึก"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Branches Grid */}
