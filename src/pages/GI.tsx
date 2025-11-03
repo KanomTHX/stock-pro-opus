@@ -23,7 +23,7 @@ export default function GI() {
   const [items, setItems] = useState<GIItem[]>([]);
   const [formData, setFormData] = useState({
     branch_id: "",
-    purpose: "" as "sale" | "sample" | "service" | "adjustment" | "",
+    purpose: "" as "sale" | "sample" | "service" | "adjustment",
     note: "",
   });
 
@@ -80,14 +80,14 @@ export default function GI() {
       // Insert GI header
       const { data: giHeader, error: headerError } = await supabase
         .from("gi_headers")
-        .insert({
+        .insert([{
           gi_no: giNo,
           branch_id: formData.branch_id,
           issued_by: userData.user.id,
           purpose: formData.purpose,
           note: formData.note,
           status: "completed",
-        })
+        }])
         .select()
         .single();
 
@@ -127,7 +127,7 @@ export default function GI() {
       toast.success("เบิกสินค้าออกเรียบร้อย");
       queryClient.invalidateQueries({ queryKey: ["gi-list"] });
       setItems([]);
-      setFormData({ branch_id: "", purpose: "", note: "" });
+      setFormData({ branch_id: "", purpose: "sale", note: "" });
     },
     onError: (error: Error) => {
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
@@ -330,7 +330,7 @@ export default function GI() {
                 variant="outline"
                 onClick={() => {
                   setItems([]);
-                  setFormData({ branch_id: "", purpose: "", note: "" });
+                  setFormData({ branch_id: "", purpose: "sale", note: "" });
                 }}
               >
                 ล้างข้อมูล

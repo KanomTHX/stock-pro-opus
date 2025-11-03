@@ -77,19 +77,19 @@ export default function Transfer() {
       if (!userData.user) throw new Error("User not authenticated");
 
       // Generate Transfer number
-      const stNo = `ST-${Date.now()}`;
+      const transferNo = `TR-${Date.now()}`;
 
       // Insert Transfer header
       const { data: transferHeader, error: headerError } = await supabase
         .from("transfer_headers")
-        .insert({
-          st_no: stNo,
+        .insert([{
+          transfer_no: transferNo,
           from_branch_id: formData.from_branch_id,
           to_branch_id: formData.to_branch_id,
-          request_by: userData.user.id,
+          initiated_by: userData.user.id,
           note: formData.note,
-          status: "draft",
-        })
+          status: "pending",
+        }])
         .select()
         .single();
 
@@ -97,7 +97,7 @@ export default function Transfer() {
 
       // Insert Transfer items
       const itemsToInsert = items.map((item) => ({
-        st_id: transferHeader.id,
+        transfer_id: transferHeader.id,
         product_id: item.product_id,
         qty: item.qty,
         sn_list: item.sn_list.length > 0 ? item.sn_list : null,
@@ -130,8 +130,7 @@ export default function Transfer() {
       const { error } = await supabase
         .from("transfer_headers")
         .update({
-          status: "approved",
-          approve_by: userData.user.id,
+          status: "in_transit",
         })
         .eq("id", transferId);
 
@@ -151,8 +150,7 @@ export default function Transfer() {
       const { error } = await supabase
         .from("transfer_headers")
         .update({
-          status: "shipped",
-          ship_at: new Date().toISOString(),
+          status: "in_transit",
         })
         .eq("id", transferId);
 
@@ -194,8 +192,9 @@ export default function Transfer() {
       const { error } = await supabase
         .from("transfer_headers")
         .update({
-          status: "received",
-          receive_at: new Date().toISOString(),
+          status: "completed",
+          received_by: userData.user.id,
+          received_at: new Date().toISOString(),
         })
         .eq("id", transferId);
 
@@ -273,13 +272,12 @@ export default function Transfer() {
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      draft: { label: "ร่าง", variant: "secondary" as const },
-      approved: { label: "อนุมัติแล้ว", variant: "default" as const },
-      shipped: { label: "จัดส่งแล้ว", variant: "default" as const },
-      received: { label: "รับแล้ว", variant: "default" as const },
+      pending: { label: "รอดำเนินการ", variant: "secondary" as const },
+      in_transit: { label: "กำลังจัดส่ง", variant: "default" as const },
+      completed: { label: "เสร็จสิ้น", variant: "default" as const },
       cancelled: { label: "ยกเลิก", variant: "destructive" as const },
     };
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
@@ -469,7 +467,7 @@ export default function Transfer() {
             <TableBody>
               {transferList?.map((transfer) => (
                 <TableRow key={transfer.id}>
-                  <TableCell className="font-medium">{transfer.st_no}</TableCell>
+                  <TableCell className="font-medium">{transfer.transfer_no}</TableCell>
                   <TableCell>{transfer.from_branch?.name}</TableCell>
                   <TableCell>{transfer.to_branch?.name}</TableCell>
                   <TableCell>
@@ -482,17 +480,7 @@ export default function Transfer() {
                   <TableCell>{getStatusBadge(transfer.status)}</TableCell>
                   <TableCell>
                     <div className="flex gap-2">
-                      {transfer.status === "draft" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => approveTransfer.mutate(transfer.id)}
-                        >
-                          <CheckCircle className="h-4 w-4 mr-1" />
-                          อนุมัติ
-                        </Button>
-                      )}
-                      {transfer.status === "approved" && (
+                      {transfer.status === "pending" && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -502,7 +490,7 @@ export default function Transfer() {
                           จัดส่ง
                         </Button>
                       )}
-                      {transfer.status === "shipped" && (
+                      {transfer.status === "in_transit" && (
                         <Button
                           size="sm"
                           variant="outline"

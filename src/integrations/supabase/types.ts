@@ -89,6 +89,267 @@ export type Database = {
         }
         Relationships: []
       }
+      gi_headers: {
+        Row: {
+          branch_id: string
+          created_at: string | null
+          gi_no: string
+          id: string
+          issued_at: string | null
+          issued_by: string
+          note: string | null
+          purpose: Database["public"]["Enums"]["gi_purpose"]
+          status: Database["public"]["Enums"]["gi_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string | null
+          gi_no: string
+          id?: string
+          issued_at?: string | null
+          issued_by: string
+          note?: string | null
+          purpose: Database["public"]["Enums"]["gi_purpose"]
+          status?: Database["public"]["Enums"]["gi_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string | null
+          gi_no?: string
+          id?: string
+          issued_at?: string | null
+          issued_by?: string
+          note?: string | null
+          purpose?: Database["public"]["Enums"]["gi_purpose"]
+          status?: Database["public"]["Enums"]["gi_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gi_headers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gi_items: {
+        Row: {
+          created_at: string | null
+          gi_id: string
+          id: string
+          product_id: string
+          qty: number
+          sn_list: string[] | null
+        }
+        Insert: {
+          created_at?: string | null
+          gi_id: string
+          id?: string
+          product_id: string
+          qty: number
+          sn_list?: string[] | null
+        }
+        Update: {
+          created_at?: string | null
+          gi_id?: string
+          id?: string
+          product_id?: string
+          qty?: number
+          sn_list?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gi_items_gi_id_fkey"
+            columns: ["gi_id"]
+            isOneToOne: false
+            referencedRelation: "gi_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gi_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grn_headers: {
+        Row: {
+          branch_id: string
+          created_at: string | null
+          grn_no: string
+          id: string
+          invoice_date: string | null
+          invoice_no: string | null
+          note: string | null
+          received_at: string | null
+          received_by: string
+          status: Database["public"]["Enums"]["grn_status"] | null
+          supplier_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string | null
+          grn_no: string
+          id?: string
+          invoice_date?: string | null
+          invoice_no?: string | null
+          note?: string | null
+          received_at?: string | null
+          received_by: string
+          status?: Database["public"]["Enums"]["grn_status"] | null
+          supplier_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string | null
+          grn_no?: string
+          id?: string
+          invoice_date?: string | null
+          invoice_no?: string | null
+          note?: string | null
+          received_at?: string | null
+          received_by?: string
+          status?: Database["public"]["Enums"]["grn_status"] | null
+          supplier_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grn_headers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_headers_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grn_items: {
+        Row: {
+          created_at: string | null
+          grn_id: string
+          id: string
+          product_id: string
+          qty: number
+          sn_list: string[] | null
+          unit_cost: number | null
+          vat_rate: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          grn_id: string
+          id?: string
+          product_id: string
+          qty: number
+          sn_list?: string[] | null
+          unit_cost?: number | null
+          vat_rate?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          grn_id?: string
+          id?: string
+          product_id?: string
+          qty?: number
+          sn_list?: string[] | null
+          unit_cost?: number | null
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grn_items_grn_id_fkey"
+            columns: ["grn_id"]
+            isOneToOne: false
+            referencedRelation: "grn_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "grn_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      movement_logs: {
+        Row: {
+          action: Database["public"]["Enums"]["movement_action"]
+          actor_id: string
+          created_at: string | null
+          from_branch_id: string | null
+          id: string
+          note: string | null
+          product_id: string
+          qty: number
+          ref_id: string | null
+          ref_table: string | null
+          to_branch_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["movement_action"]
+          actor_id: string
+          created_at?: string | null
+          from_branch_id?: string | null
+          id?: string
+          note?: string | null
+          product_id: string
+          qty: number
+          ref_id?: string | null
+          ref_table?: string | null
+          to_branch_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["movement_action"]
+          actor_id?: string
+          created_at?: string | null
+          from_branch_id?: string | null
+          id?: string
+          note?: string | null
+          product_id?: string
+          qty?: number
+          ref_id?: string | null
+          ref_table?: string | null
+          to_branch_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movement_logs_from_branch_id_fkey"
+            columns: ["from_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_logs_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "movement_logs_to_branch_id_fkey"
+            columns: ["to_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_images: {
         Row: {
           alt_text: string | null
@@ -252,6 +513,147 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          address: string | null
+          code: string
+          contact_person: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          code: string
+          contact_person?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          code?: string
+          contact_person?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      transfer_headers: {
+        Row: {
+          created_at: string | null
+          from_branch_id: string
+          id: string
+          initiated_at: string | null
+          initiated_by: string
+          note: string | null
+          received_at: string | null
+          received_by: string | null
+          status: Database["public"]["Enums"]["transfer_status"] | null
+          to_branch_id: string
+          transfer_no: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          from_branch_id: string
+          id?: string
+          initiated_at?: string | null
+          initiated_by: string
+          note?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          status?: Database["public"]["Enums"]["transfer_status"] | null
+          to_branch_id: string
+          transfer_no: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          from_branch_id?: string
+          id?: string
+          initiated_at?: string | null
+          initiated_by?: string
+          note?: string | null
+          received_at?: string | null
+          received_by?: string | null
+          status?: Database["public"]["Enums"]["transfer_status"] | null
+          to_branch_id?: string
+          transfer_no?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_headers_from_branch_id_fkey"
+            columns: ["from_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_headers_to_branch_id_fkey"
+            columns: ["to_branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transfer_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          product_id: string
+          qty: number
+          sn_list: string[] | null
+          transfer_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          product_id: string
+          qty: number
+          sn_list?: string[] | null
+          transfer_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          qty?: number
+          sn_list?: string[] | null
+          transfer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transfer_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transfer_items_transfer_id_fkey"
+            columns: ["transfer_id"]
+            isOneToOne: false
+            referencedRelation: "transfer_headers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -266,6 +668,18 @@ export type Database = {
         | "branch_staff"
         | "warehouse_staff"
         | "auditor"
+      gi_purpose: "sale" | "sample" | "service" | "adjustment"
+      gi_status: "pending" | "completed" | "cancelled"
+      grn_status: "draft" | "completed" | "cancelled"
+      item_condition: "new" | "used" | "refurbished" | "damaged"
+      item_status: "available" | "reserved" | "sold" | "defective"
+      movement_action:
+        | "receive"
+        | "issue"
+        | "transfer_out"
+        | "transfer_in"
+        | "adjustment"
+      transfer_status: "pending" | "in_transit" | "completed" | "cancelled"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -400,6 +814,19 @@ export const Constants = {
         "warehouse_staff",
         "auditor",
       ],
+      gi_purpose: ["sale", "sample", "service", "adjustment"],
+      gi_status: ["pending", "completed", "cancelled"],
+      grn_status: ["draft", "completed", "cancelled"],
+      item_condition: ["new", "used", "refurbished", "damaged"],
+      item_status: ["available", "reserved", "sold", "defective"],
+      movement_action: [
+        "receive",
+        "issue",
+        "transfer_out",
+        "transfer_in",
+        "adjustment",
+      ],
+      transfer_status: ["pending", "in_transit", "completed", "cancelled"],
     },
   },
 } as const
