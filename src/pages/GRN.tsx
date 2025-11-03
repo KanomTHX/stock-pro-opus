@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Plus, Trash2, PackagePlus } from "lucide-react";
 
@@ -27,6 +28,15 @@ export default function GRN() {
     supplier_id: "",
     branch_id: "",
     note: "",
+  });
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({
+    name: "",
+    code: "",
+    contact_person: "",
+    phone: "",
+    email: "",
+    address: "",
   });
 
   const { data: suppliers } = useQuery({
@@ -82,6 +92,43 @@ export default function GRN() {
         .limit(20);
       if (error) throw error;
       return data;
+    },
+  });
+
+  const createSupplier = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .insert([{
+          name: newSupplier.name,
+          code: newSupplier.code,
+          contact_person: newSupplier.contact_person || null,
+          phone: newSupplier.phone || null,
+          email: newSupplier.email || null,
+          address: newSupplier.address || null,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("สร้างซัพพลายเออร์เรียบร้อย");
+      queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+      setFormData({ ...formData, supplier_id: data.id });
+      setSupplierDialogOpen(false);
+      setNewSupplier({
+        name: "",
+        code: "",
+        contact_person: "",
+        phone: "",
+        email: "",
+        address: "",
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
     },
   });
 
@@ -210,7 +257,104 @@ export default function GRN() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="supplier">ซัพพลายเออร์</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="supplier">ซัพพลายเออร์</Label>
+                  <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button type="button" variant="outline" size="sm">
+                        <Plus className="h-4 w-4 mr-1" />
+                        สร้างซัพพลายเออร์
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>สร้างซัพพลายเออร์ใหม่</DialogTitle>
+                        <DialogDescription>กรอกข้อมูลซัพพลายเออร์</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="supplier-name">ชื่อซัพพลายเออร์ *</Label>
+                          <Input
+                            id="supplier-name"
+                            value={newSupplier.name}
+                            onChange={(e) => setNewSupplier({ ...newSupplier, name: e.target.value })}
+                            placeholder="ชื่อซัพพลายเออร์"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="supplier-code">รหัสซัพพลายเออร์ *</Label>
+                          <Input
+                            id="supplier-code"
+                            value={newSupplier.code}
+                            onChange={(e) => setNewSupplier({ ...newSupplier, code: e.target.value })}
+                            placeholder="SUP001"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="supplier-contact">ผู้ติดต่อ</Label>
+                          <Input
+                            id="supplier-contact"
+                            value={newSupplier.contact_person}
+                            onChange={(e) => setNewSupplier({ ...newSupplier, contact_person: e.target.value })}
+                            placeholder="ชื่อผู้ติดต่อ"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="supplier-phone">เบอร์โทรศัพท์</Label>
+                          <Input
+                            id="supplier-phone"
+                            value={newSupplier.phone}
+                            onChange={(e) => setNewSupplier({ ...newSupplier, phone: e.target.value })}
+                            placeholder="02-xxx-xxxx"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="supplier-email">อีเมล</Label>
+                          <Input
+                            id="supplier-email"
+                            type="email"
+                            value={newSupplier.email}
+                            onChange={(e) => setNewSupplier({ ...newSupplier, email: e.target.value })}
+                            placeholder="email@example.com"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="supplier-address">ที่อยู่</Label>
+                          <Textarea
+                            id="supplier-address"
+                            value={newSupplier.address}
+                            onChange={(e) => setNewSupplier({ ...newSupplier, address: e.target.value })}
+                            placeholder="ที่อยู่ซัพพลายเออร์"
+                          />
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSupplierDialogOpen(false)}
+                          >
+                            ยกเลิก
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (!newSupplier.name || !newSupplier.code) {
+                                toast.error("กรุณากรอกชื่อและรหัสซัพพลายเออร์");
+                                return;
+                              }
+                              createSupplier.mutate();
+                            }}
+                            disabled={createSupplier.isPending}
+                          >
+                            {createSupplier.isPending ? "กำลังบันทึก..." : "บันทึก"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
                 <Select
                   value={formData.supplier_id}
                   onValueChange={(value) =>
