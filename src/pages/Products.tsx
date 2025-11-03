@@ -3,31 +3,74 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Search, Package, Grid, List } from "lucide-react";
 import { toast } from "sonner";
+import { useMutation } from "@tanstack/react-query";
 
 interface Product {
   id: string;
   sku: string;
   name: string;
+  description: string | null;
   color: string | null;
   dimensions: string | null;
+  material: string | null;
   unit: string;
+  min_stock: number;
+  track_by_sn: boolean;
+  is_active: boolean;
   default_image_url: string | null;
-  categories: { name: string } | null;
-  brands: { name: string } | null;
+  category_id: string | null;
+  brand_id: string | null;
+  categories: { id: string; name: string } | null;
+  brands: { id: string; name: string } | null;
 }
 
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [editProduct, setEditProduct] = useState({
+    sku: "",
+    name: "",
+    description: "",
+    color: "",
+    dimensions: "",
+    material: "",
+    unit: "ชิ้น",
+    min_stock: 0,
+    track_by_sn: false,
+    is_active: true,
+    category_id: "",
+    brand_id: "",
+  });
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
+    fetchBrands();
   }, []);
+
+  const fetchCategories = async () => {
+    const { data } = await supabase.from("categories").select("*").order("name");
+    setCategories(data || []);
+  };
+
+  const fetchBrands = async () => {
+    const { data } = await supabase.from("brands").select("*").order("name");
+    setBrands(data || []);
+  };
 
   const fetchProducts = async () => {
     try {
@@ -37,8 +80,8 @@ const Products = () => {
         .select(
           `
           *,
-          categories (name),
-          brands (name)
+          categories (id, name),
+          brands (id, name)
         `
         )
         .eq("is_active", true)
@@ -53,6 +96,60 @@ const Products = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const updateProduct = useMutation({
+    mutationFn: async () => {
+      if (!selectedProduct) return;
+      
+      const { error } = await supabase
+        .from("products")
+        .update({
+          sku: editProduct.sku,
+          name: editProduct.name,
+          description: editProduct.description || null,
+          color: editProduct.color || null,
+          dimensions: editProduct.dimensions || null,
+          material: editProduct.material || null,
+          unit: editProduct.unit,
+          min_stock: editProduct.min_stock,
+          track_by_sn: editProduct.track_by_sn,
+          is_active: editProduct.is_active,
+          category_id: editProduct.category_id || null,
+          brand_id: editProduct.brand_id || null,
+        })
+        .eq("id", selectedProduct.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("อัปเดตสินค้าเรียบร้อย");
+      fetchProducts();
+      setEditDialogOpen(false);
+      setSelectedProduct(null);
+    },
+    onError: (error: Error) => {
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
+    },
+  });
+
+  const handleEditClick = (product: Product) => {
+    setSelectedProduct(product);
+    setEditProduct({
+      sku: product.sku,
+      name: product.name,
+      description: product.description || "",
+      color: product.color || "",
+      dimensions: product.dimensions || "",
+      material: product.material || "",
+      unit: product.unit,
+      min_stock: product.min_stock,
+      track_by_sn: product.track_by_sn,
+      is_active: product.is_active,
+      category_id: product.category_id || "",
+      brand_id: product.brand_id || "",
+    });
+    setEditDialogOpen(true);
   };
 
   const filteredProducts = products.filter(
@@ -141,6 +238,7 @@ const Products = () => {
             <Card
               key={product.id}
               className="shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+              onClick={() => handleEditClick(product)}
             >
               <CardContent className={viewMode === "grid" ? "p-4" : "p-4 flex gap-4"}>
                 {/* Image */}
@@ -203,6 +301,183 @@ const Products = () => {
           ))}
         </div>
       )}
+
+      {/* Edit Product Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>แก้ไขข้อมูลสินค้า</DialogTitle>
+            <DialogDescription>แก้ไขข้อมูลสินค้า {selectedProduct?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-sku">SKU *</Label>
+                <Input
+                  id="edit-sku"
+                  value={editProduct.sku}
+                  onChange={(e) => setEditProduct({ ...editProduct, sku: e.target.value })}
+                  placeholder="SKU"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">ชื่อสินค้า *</Label>
+                <Input
+                  id="edit-name"
+                  value={editProduct.name}
+                  onChange={(e) => setEditProduct({ ...editProduct, name: e.target.value })}
+                  placeholder="ชื่อสินค้า"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">รายละเอียด</Label>
+              <Textarea
+                id="edit-description"
+                value={editProduct.description}
+                onChange={(e) => setEditProduct({ ...editProduct, description: e.target.value })}
+                placeholder="รายละเอียดสินค้า"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">หมวดหมู่</Label>
+                <Select
+                  value={editProduct.category_id}
+                  onValueChange={(value) => setEditProduct({ ...editProduct, category_id: value })}
+                >
+                  <SelectTrigger id="edit-category">
+                    <SelectValue placeholder="เลือกหมวดหมู่" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-brand">ยี่ห้อ</Label>
+                <Select
+                  value={editProduct.brand_id}
+                  onValueChange={(value) => setEditProduct({ ...editProduct, brand_id: value })}
+                >
+                  <SelectTrigger id="edit-brand">
+                    <SelectValue placeholder="เลือกยี่ห้อ" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brands.map((brand) => (
+                      <SelectItem key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-color">สี</Label>
+                <Input
+                  id="edit-color"
+                  value={editProduct.color}
+                  onChange={(e) => setEditProduct({ ...editProduct, color: e.target.value })}
+                  placeholder="สี"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-dimensions">ขนาด</Label>
+                <Input
+                  id="edit-dimensions"
+                  value={editProduct.dimensions}
+                  onChange={(e) => setEditProduct({ ...editProduct, dimensions: e.target.value })}
+                  placeholder="กว้าง x ยาว x สูง"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-material">วัสดุ</Label>
+                <Input
+                  id="edit-material"
+                  value={editProduct.material}
+                  onChange={(e) => setEditProduct({ ...editProduct, material: e.target.value })}
+                  placeholder="วัสดุ"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-unit">หน่วย</Label>
+                <Input
+                  id="edit-unit"
+                  value={editProduct.unit}
+                  onChange={(e) => setEditProduct({ ...editProduct, unit: e.target.value })}
+                  placeholder="หน่วย"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-min-stock">สต็อกขั้นต่ำ</Label>
+                <Input
+                  id="edit-min-stock"
+                  type="number"
+                  value={editProduct.min_stock}
+                  onChange={(e) => setEditProduct({ ...editProduct, min_stock: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="edit-track-sn"
+                  checked={editProduct.track_by_sn}
+                  onCheckedChange={(checked) => setEditProduct({ ...editProduct, track_by_sn: checked })}
+                />
+                <Label htmlFor="edit-track-sn">ติดตามด้วย Serial Number</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Switch
+                  id="edit-active"
+                  checked={editProduct.is_active}
+                  onCheckedChange={(checked) => setEditProduct({ ...editProduct, is_active: checked })}
+                />
+                <Label htmlFor="edit-active">เปิดใช้งาน</Label>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!editProduct.sku || !editProduct.name) {
+                    toast.error("กรุณากรอก SKU และชื่อสินค้า");
+                    return;
+                  }
+                  updateProduct.mutate();
+                }}
+                disabled={updateProduct.isPending}
+              >
+                {updateProduct.isPending ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Building2, Phone, MapPin, Plus } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Building2, Phone, MapPin, Plus, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
@@ -24,11 +25,20 @@ const Branches = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<Branch | null>(null);
   const [newBranch, setNewBranch] = useState({
     name: "",
     code: "",
     phone: "",
     address: "",
+  });
+  const [editBranch, setEditBranch] = useState({
+    name: "",
+    code: "",
+    phone: "",
+    address: "",
+    is_active: true,
   });
 
   useEffect(() => {
@@ -86,6 +96,46 @@ const Branches = () => {
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
     },
   });
+
+  const updateBranch = useMutation({
+    mutationFn: async () => {
+      if (!selectedBranch) return;
+      
+      const { error } = await supabase
+        .from("branches")
+        .update({
+          name: editBranch.name,
+          code: editBranch.code,
+          phone: editBranch.phone || null,
+          address: editBranch.address || null,
+          is_active: editBranch.is_active,
+        })
+        .eq("id", selectedBranch.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("อัปเดตสาขาเรียบร้อย");
+      fetchBranches();
+      setEditDialogOpen(false);
+      setSelectedBranch(null);
+    },
+    onError: (error: Error) => {
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
+    },
+  });
+
+  const handleEditClick = (branch: Branch) => {
+    setSelectedBranch(branch);
+    setEditBranch({
+      name: branch.name,
+      code: branch.code,
+      phone: branch.phone || "",
+      address: branch.address || "",
+      is_active: branch.is_active,
+    });
+    setEditDialogOpen(true);
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -207,10 +257,11 @@ const Branches = () => {
           {branches.map((branch, index) => (
             <Card
               key={branch.id}
-              className="shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1"
+              className="shadow-card hover:shadow-elevated transition-all duration-300 hover:-translate-y-1 cursor-pointer"
               style={{
                 animationDelay: `${index * 50}ms`,
               }}
+              onClick={() => handleEditClick(branch)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -255,6 +306,86 @@ const Branches = () => {
           ))}
         </div>
       )}
+
+      {/* Edit Branch Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>แก้ไขข้อมูลสาขา</DialogTitle>
+            <DialogDescription>แก้ไขข้อมูลสาขา {selectedBranch?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-branch-name">ชื่อสาขา *</Label>
+              <Input
+                id="edit-branch-name"
+                value={editBranch.name}
+                onChange={(e) => setEditBranch({ ...editBranch, name: e.target.value })}
+                placeholder="ชื่อสาขา"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-branch-code">รหัสสาขา *</Label>
+              <Input
+                id="edit-branch-code"
+                value={editBranch.code}
+                onChange={(e) => setEditBranch({ ...editBranch, code: e.target.value })}
+                placeholder="BR001"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-branch-phone">เบอร์โทรศัพท์</Label>
+              <Input
+                id="edit-branch-phone"
+                value={editBranch.phone}
+                onChange={(e) => setEditBranch({ ...editBranch, phone: e.target.value })}
+                placeholder="02-xxx-xxxx"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-branch-address">ที่อยู่</Label>
+              <Textarea
+                id="edit-branch-address"
+                value={editBranch.address}
+                onChange={(e) => setEditBranch({ ...editBranch, address: e.target.value })}
+                placeholder="ที่อยู่สาขา"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="edit-branch-active"
+                checked={editBranch.is_active}
+                onCheckedChange={(checked) => setEditBranch({ ...editBranch, is_active: checked })}
+              />
+              <Label htmlFor="edit-branch-active">เปิดใช้งาน</Label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditDialogOpen(false)}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!editBranch.name || !editBranch.code) {
+                    toast.error("กรุณากรอกชื่อและรหัสสาขา");
+                    return;
+                  }
+                  updateBranch.mutate();
+                }}
+                disabled={updateBranch.isPending}
+              >
+                {updateBranch.isPending ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
