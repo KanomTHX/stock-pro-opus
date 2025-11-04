@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, PackagePlus } from "lucide-react";
+import { Plus, Trash2, PackagePlus, ImagePlus } from "lucide-react";
 
 interface GRNItem {
   product_id: string;
@@ -38,6 +39,22 @@ export default function GRN() {
     email: "",
     address: "",
   });
+  const [productDialogOpen, setProductDialogOpen] = useState(false);
+  const [newProduct, setNewProduct] = useState({
+    sku: "",
+    name: "",
+    description: "",
+    color: "",
+    dimensions: "",
+    material: "",
+    unit: "ชิ้น",
+    min_stock: 0,
+    track_by_sn: false,
+    category_id: "",
+    brand_id: "",
+  });
+  const [productImage, setProductImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const { data: suppliers } = useQuery({
     queryKey: ["suppliers"],
@@ -72,6 +89,30 @@ export default function GRN() {
         .from("products")
         .select("id, sku, name")
         .eq("is_active", true)
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: categories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: brands } = useQuery({
+    queryKey: ["brands"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("brands")
+        .select("*")
         .order("name");
       if (error) throw error;
       return data;
@@ -126,6 +167,97 @@ export default function GRN() {
         email: "",
         address: "",
       });
+    },
+    onError: (error: Error) => {
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
+    },
+  });
+
+  const createProduct = useMutation({
+    mutationFn: async () => {
+      let imageUrl: string | null = null;
+
+      // Upload image if provided
+      if (productImage) {
+        const fileExt = productImage.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, productImage);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
+
+        imageUrl = publicUrl;
+      }
+
+      // Create product
+      const { data, error } = await supabase
+        .from("products")
+        .insert([{
+          sku: newProduct.sku,
+          name: newProduct.name,
+          description: newProduct.description || null,
+          color: newProduct.color || null,
+          dimensions: newProduct.dimensions || null,
+          material: newProduct.material || null,
+          unit: newProduct.unit,
+          min_stock: newProduct.min_stock,
+          track_by_sn: newProduct.track_by_sn,
+          category_id: newProduct.category_id || null,
+          brand_id: newProduct.brand_id || null,
+          default_image_url: imageUrl,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Create product image record if image was uploaded
+      if (imageUrl) {
+        const { data: userData } = await supabase.auth.getUser();
+        await supabase.from("product_images").insert({
+          product_id: data.id,
+          url: imageUrl,
+          is_primary: true,
+          uploaded_by: userData.user?.id || null,
+        });
+      }
+
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("สร้างสินค้าเรียบร้อย");
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setProductDialogOpen(false);
+      setNewProduct({
+        sku: "",
+        name: "",
+        description: "",
+        color: "",
+        dimensions: "",
+        material: "",
+        unit: "ชิ้น",
+        min_stock: 0,
+        track_by_sn: false,
+        category_id: "",
+        brand_id: "",
+      });
+      setProductImage(null);
+      setImagePreview(null);
+      
+      // Auto-select the newly created product
+      if (items.length > 0 && !items[items.length - 1].product_id) {
+        const newItems = [...items];
+        newItems[newItems.length - 1].product_id = data.id;
+        newItems[newItems.length - 1].product_name = data.name;
+        setItems(newItems);
+      }
     },
     onError: (error: Error) => {
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
@@ -224,6 +356,22 @@ export default function GRN() {
       newItems[index].product_name = product?.name;
     }
     setItems(newItems);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5242880) { // 5MB
+        toast.error("ไฟล์รูปภาพต้องมีขนาดไม่เกิน 5MB");
+        return;
+      }
+      setProductImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -410,10 +558,228 @@ export default function GRN() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label>รายการสินค้า</Label>
-                <Button type="button" onClick={addItem} size="sm" variant="outline">
-                  <Plus className="mr-2 h-4 w-4" />
-                  เพิ่มรายการ
-                </Button>
+                <div className="flex gap-2">
+                  <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button type="button" size="sm" variant="secondary">
+                        <Plus className="mr-2 h-4 w-4" />
+                        เพิ่มข้อมูลสินค้าใหม่
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>เพิ่มข้อมูลสินค้าใหม่</DialogTitle>
+                        <DialogDescription>กรอกข้อมูลสินค้าและอัพโหลดรูปภาพ</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="product-sku">SKU *</Label>
+                            <Input
+                              id="product-sku"
+                              value={newProduct.sku}
+                              onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
+                              placeholder="PRD-001"
+                              required
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="product-name">ชื่อสินค้า *</Label>
+                            <Input
+                              id="product-name"
+                              value={newProduct.name}
+                              onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                              placeholder="ชื่อสินค้า"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="product-description">รายละเอียด</Label>
+                          <Textarea
+                            id="product-description"
+                            value={newProduct.description}
+                            onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                            placeholder="รายละเอียดสินค้า"
+                            rows={3}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="product-category">หมวดหมู่</Label>
+                            <Select
+                              value={newProduct.category_id}
+                              onValueChange={(value) => setNewProduct({ ...newProduct, category_id: value })}
+                            >
+                              <SelectTrigger id="product-category">
+                                <SelectValue placeholder="เลือกหมวดหมู่" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {categories?.map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="product-brand">ยี่ห้อ</Label>
+                            <Select
+                              value={newProduct.brand_id}
+                              onValueChange={(value) => setNewProduct({ ...newProduct, brand_id: value })}
+                            >
+                              <SelectTrigger id="product-brand">
+                                <SelectValue placeholder="เลือกยี่ห้อ" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {brands?.map((brand) => (
+                                  <SelectItem key={brand.id} value={brand.id}>
+                                    {brand.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="product-color">สี</Label>
+                            <Input
+                              id="product-color"
+                              value={newProduct.color}
+                              onChange={(e) => setNewProduct({ ...newProduct, color: e.target.value })}
+                              placeholder="สี"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="product-dimensions">ขนาด</Label>
+                            <Input
+                              id="product-dimensions"
+                              value={newProduct.dimensions}
+                              onChange={(e) => setNewProduct({ ...newProduct, dimensions: e.target.value })}
+                              placeholder="กว้าง x ยาว x สูง"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="product-material">วัสดุ</Label>
+                            <Input
+                              id="product-material"
+                              value={newProduct.material}
+                              onChange={(e) => setNewProduct({ ...newProduct, material: e.target.value })}
+                              placeholder="วัสดุ"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="product-unit">หน่วย</Label>
+                            <Input
+                              id="product-unit"
+                              value={newProduct.unit}
+                              onChange={(e) => setNewProduct({ ...newProduct, unit: e.target.value })}
+                              placeholder="ชิ้น"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="product-min-stock">สต็อกขั้นต่ำ</Label>
+                            <Input
+                              id="product-min-stock"
+                              type="number"
+                              value={newProduct.min_stock}
+                              onChange={(e) => setNewProduct({ ...newProduct, min_stock: parseInt(e.target.value) || 0 })}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="product-track-sn"
+                              checked={newProduct.track_by_sn}
+                              onCheckedChange={(checked) => setNewProduct({ ...newProduct, track_by_sn: checked })}
+                            />
+                            <Label htmlFor="product-track-sn">ติดตามด้วย Serial Number</Label>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="product-image">รูปภาพสินค้า</Label>
+                          <div className="flex flex-col gap-4">
+                            <div className="flex items-center gap-4">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => document.getElementById('product-image')?.click()}
+                              >
+                                <ImagePlus className="mr-2 h-4 w-4" />
+                                เลือกรูปภาพ
+                              </Button>
+                              <Input
+                                id="product-image"
+                                type="file"
+                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                onChange={handleImageChange}
+                                className="hidden"
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                {productImage ? productImage.name : "ไม่ได้เลือกไฟล์"}
+                              </span>
+                            </div>
+                            {imagePreview && (
+                              <div className="relative w-full h-48 border rounded-lg overflow-hidden">
+                                <img
+                                  src={imagePreview}
+                                  alt="Preview"
+                                  className="w-full h-full object-contain"
+                                />
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              รองรับไฟล์ JPG, PNG, WEBP ขนาดไม่เกิน 5MB
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              setProductDialogOpen(false);
+                              setProductImage(null);
+                              setImagePreview(null);
+                            }}
+                          >
+                            ยกเลิก
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={() => {
+                              if (!newProduct.sku || !newProduct.name) {
+                                toast.error("กรุณากรอก SKU และชื่อสินค้า");
+                                return;
+                              }
+                              createProduct.mutate();
+                            }}
+                            disabled={createProduct.isPending}
+                          >
+                            {createProduct.isPending ? "กำลังบันทึก..." : "บันทึก"}
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Button type="button" onClick={addItem} size="sm" variant="outline">
+                    <Plus className="mr-2 h-4 w-4" />
+                    เพิ่มรายการ
+                  </Button>
+                </div>
               </div>
 
               <div className="border rounded-lg overflow-hidden">
