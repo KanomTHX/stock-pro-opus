@@ -99,9 +99,14 @@ const Branches = () => {
 
   const updateBranch = useMutation({
     mutationFn: async () => {
-      if (!selectedBranch) return;
+      if (!selectedBranch) {
+        console.error("No branch selected for update");
+        return;
+      }
       
-      const { error } = await supabase
+      console.log("Updating branch:", selectedBranch.id, editBranch);
+      
+      const { data, error } = await supabase
         .from("branches")
         .update({
           name: editBranch.name,
@@ -110,9 +115,16 @@ const Branches = () => {
           address: editBranch.address || null,
           is_active: editBranch.is_active,
         })
-        .eq("id", selectedBranch.id);
+        .eq("id", selectedBranch.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Update error:", error);
+        throw error;
+      }
+      
+      console.log("Update successful:", data);
+      return data;
     },
     onSuccess: () => {
       toast.success("อัปเดตสาขาเรียบร้อย");
@@ -121,6 +133,7 @@ const Branches = () => {
       setSelectedBranch(null);
     },
     onError: (error: Error) => {
+      console.error("Mutation error:", error);
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
     },
   });

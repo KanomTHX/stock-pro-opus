@@ -100,9 +100,14 @@ const Products = () => {
 
   const updateProduct = useMutation({
     mutationFn: async () => {
-      if (!selectedProduct) return;
+      if (!selectedProduct) {
+        console.error("No product selected for update");
+        return;
+      }
       
-      const { error } = await supabase
+      console.log("Updating product:", selectedProduct.id, editProduct);
+      
+      const { data, error } = await supabase
         .from("products")
         .update({
           sku: editProduct.sku,
@@ -118,9 +123,16 @@ const Products = () => {
           category_id: editProduct.category_id || null,
           brand_id: editProduct.brand_id || null,
         })
-        .eq("id", selectedProduct.id);
+        .eq("id", selectedProduct.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Update error:", error);
+        throw error;
+      }
+      
+      console.log("Update successful:", data);
+      return data;
     },
     onSuccess: () => {
       toast.success("อัปเดตสินค้าเรียบร้อย");
@@ -129,6 +141,7 @@ const Products = () => {
       setSelectedProduct(null);
     },
     onError: (error: Error) => {
+      console.error("Mutation error:", error);
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
     },
   });
