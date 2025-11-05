@@ -180,6 +180,7 @@ export type Database = {
       }
       grn_headers: {
         Row: {
+          attachment_url: string | null
           branch_id: string
           created_at: string | null
           grn_no: string
@@ -194,6 +195,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          attachment_url?: string | null
           branch_id: string
           created_at?: string | null
           grn_no: string
@@ -208,6 +210,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          attachment_url?: string | null
           branch_id?: string
           created_at?: string | null
           grn_no?: string

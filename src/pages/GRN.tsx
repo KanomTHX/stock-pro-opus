@@ -55,6 +55,8 @@ export default function GRN() {
   });
   const [productImage, setProductImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [grnAttachment, setGrnAttachment] = useState<File | null>(null);
+  const [grnAttachmentPreview, setGrnAttachmentPreview] = useState<string | null>(null);
 
   const { data: suppliers } = useQuery({
     queryKey: ["suppliers"],
@@ -269,6 +271,27 @@ export default function GRN() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("User not authenticated");
 
+      let attachmentUrl: string | null = null;
+
+      // Upload GRN attachment if provided
+      if (grnAttachment) {
+        const fileExt = grnAttachment.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('grn-attachments')
+          .upload(filePath, grnAttachment);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('grn-attachments')
+          .getPublicUrl(filePath);
+
+        attachmentUrl = publicUrl;
+      }
+
       // Generate GRN number
       const grnNo = `GRN-${Date.now()}`;
 
@@ -282,6 +305,7 @@ export default function GRN() {
           received_by: userData.user.id,
           note: formData.note,
           status: "completed",
+          attachment_url: attachmentUrl,
         })
         .select()
         .single();
@@ -325,6 +349,8 @@ export default function GRN() {
       queryClient.invalidateQueries({ queryKey: ["grn-list"] });
       setItems([]);
       setFormData({ supplier_id: "", branch_id: "", note: "" });
+      setGrnAttachment(null);
+      setGrnAttachmentPreview(null);
     },
     onError: (error: Error) => {
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
@@ -369,6 +395,22 @@ export default function GRN() {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleGrnAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10485760) { // 10MB
+        toast.error("ไฟล์เอกสารต้องมีขนาดไม่เกิน 10MB");
+        return;
+      }
+      setGrnAttachment(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setGrnAttachmentPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
@@ -553,6 +595,44 @@ export default function GRN() {
                 onChange={(e) => setFormData({ ...formData, note: e.target.value })}
                 placeholder="หมายเหตุเพิ่มเติม"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="grn-attachment">รูปภาพใบรับสินค้า (หลักฐานการรับสินค้า)</Label>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('grn-attachment')?.click()}
+                  >
+                    <ImagePlus className="mr-2 h-4 w-4" />
+                    อัพโหลดรูปภาพ
+                  </Button>
+                  <Input
+                    id="grn-attachment"
+                    type="file"
+                    accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                    onChange={handleGrnAttachmentChange}
+                    className="hidden"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {grnAttachment ? grnAttachment.name : "ไม่ได้เลือกไฟล์"}
+                  </span>
+                </div>
+                {grnAttachmentPreview && grnAttachment?.type.startsWith('image/') && (
+                  <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden">
+                    <img
+                      src={grnAttachmentPreview}
+                      alt="GRN Attachment Preview"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  รองรับไฟล์ JPG, PNG, WEBP, PDF ขนาดไม่เกิน 10MB
+                </p>
+              </div>
             </div>
 
             <div className="space-y-4">
