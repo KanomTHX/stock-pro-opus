@@ -516,6 +516,48 @@ export type Database = {
           },
         ]
       }
+      stock_by_branch: {
+        Row: {
+          branch_id: string
+          created_at: string | null
+          id: string
+          product_id: string
+          qty: number
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id: string
+          created_at?: string | null
+          id?: string
+          product_id: string
+          qty?: number
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string
+          created_at?: string | null
+          id?: string
+          product_id?: string
+          qty?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_by_branch_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_by_branch_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null

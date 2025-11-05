@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Search, Package, Grid, List } from "lucide-react";
+import { Search, Package, Grid, List, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
@@ -30,14 +30,21 @@ interface Product {
   brand_id: string | null;
   categories: { id: string; name: string } | null;
   brands: { id: string; name: string } | null;
+  stock_by_branch?: Array<{
+    branch_id: string;
+    qty: number;
+    branches: { name: string; code: string };
+  }>;
 }
 
 const Products = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [brands, setBrands] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState<string>("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -60,6 +67,7 @@ const Products = () => {
     fetchProducts();
     fetchCategories();
     fetchBrands();
+    fetchBranches();
   }, []);
 
   const fetchCategories = async () => {
@@ -72,6 +80,15 @@ const Products = () => {
     setBrands(data || []);
   };
 
+  const fetchBranches = async () => {
+    const { data } = await supabase
+      .from("branches")
+      .select("*")
+      .eq("is_active", true)
+      .order("name");
+    setBranches(data || []);
+  };
+
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
@@ -81,7 +98,12 @@ const Products = () => {
           `
           *,
           categories (id, name),
-          brands (id, name)
+          brands (id, name),
+          stock_by_branch (
+            branch_id,
+            qty,
+            branches (name, code)
+          )
         `
         )
         .eq("is_active", true)
@@ -165,11 +187,17 @@ const Products = () => {
     setEditDialogOpen(true);
   };
 
-  const filteredProducts = products.filter(
-    (product) =>
+  const filteredProducts = products.filter((product) => {
+    const matchesSearch =
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesBranch =
+      !selectedBranch ||
+      product.stock_by_branch?.some((stock) => stock.branch_id === selectedBranch);
+    
+    return matchesSearch && matchesBranch;
+  });
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -201,15 +229,33 @@ const Products = () => {
         </div>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="ค้นหาด้วย SKU, ชื่อสินค้า..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
+      {/* Search and Filter */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="ค้นหาด้วย SKU, ชื่อสินค้า..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <SelectTrigger className="pl-10">
+              <SelectValue placeholder="ทุกสาขา" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">ทุกสาขา</SelectItem>
+              {branches.map((branch) => (
+                <SelectItem key={branch.id} value={branch.id}>
+                  {branch.name} ({branch.code})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Products Grid/List */}
@@ -307,6 +353,17 @@ const Products = () => {
                       <div>ขนาด: {product.dimensions}</div>
                     )}
                     <div>หน่วย: {product.unit}</div>
+                    {product.stock_by_branch && product.stock_by_branch.length > 0 && (
+                      <div className="mt-2 pt-2 border-t">
+                        <div className="font-medium text-foreground mb-1">สต็อกตามสาขา:</div>
+                        {product.stock_by_branch.map((stock: any) => (
+                          <div key={stock.branch_id} className="flex justify-between">
+                            <span>{stock.branches.name}:</span>
+                            <span className="font-medium">{stock.qty} {product.unit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

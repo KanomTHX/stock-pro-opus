@@ -328,8 +328,33 @@ export default function GRN() {
 
       if (itemsError) throw itemsError;
 
-      // Create movement logs
+      // Update stock_by_branch and create movement logs
       for (const item of items) {
+        // Update stock
+        const { data: existingStock } = await supabase
+          .from("stock_by_branch")
+          .select("qty")
+          .eq("product_id", item.product_id)
+          .eq("branch_id", formData.branch_id)
+          .maybeSingle();
+
+        if (existingStock) {
+          await supabase
+            .from("stock_by_branch")
+            .update({ qty: existingStock.qty + item.qty })
+            .eq("product_id", item.product_id)
+            .eq("branch_id", formData.branch_id);
+        } else {
+          await supabase
+            .from("stock_by_branch")
+            .insert({
+              product_id: item.product_id,
+              branch_id: formData.branch_id,
+              qty: item.qty,
+            });
+        }
+
+        // Create movement log
         await supabase.from("movement_logs").insert({
           action: "receive",
           ref_table: "grn_headers",
@@ -357,6 +382,12 @@ export default function GRN() {
     },
   });
 
+  const generateSerialNumber = () => {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+    return `SN${timestamp}${random}`;
+  };
+
   const addItem = () => {
     setItems([
       ...items,
@@ -380,6 +411,15 @@ export default function GRN() {
     if (field === "product_id" && products) {
       const product = products.find((p) => p.id === value);
       newItems[index].product_name = product?.name;
+    }
+    // Auto-generate serial numbers when qty changes
+    if (field === "qty") {
+      const qty = parseInt(value) || 0;
+      const serialNumbers = [];
+      for (let i = 0; i < qty; i++) {
+        serialNumbers.push(generateSerialNumber());
+      }
+      newItems[index].sn_list = serialNumbers;
     }
     setItems(newItems);
   };
