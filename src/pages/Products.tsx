@@ -44,7 +44,7 @@ const Products = () => {
   const [branches, setBranches] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedBranch, setSelectedBranch] = useState<string>("");
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -193,7 +193,7 @@ const Products = () => {
       product.sku.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesBranch =
-      !selectedBranch ||
+      selectedBranch === "all" ||
       product.stock_by_branch?.some((stock) => stock.branch_id === selectedBranch);
     
     return matchesSearch && matchesBranch;
@@ -247,7 +247,7 @@ const Products = () => {
               <SelectValue placeholder="ทุกสาขา" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">ทุกสาขา</SelectItem>
+              <SelectItem value="all">ทุกสาขา</SelectItem>
               {branches.map((branch) => (
                 <SelectItem key={branch.id} value={branch.id}>
                   {branch.name} ({branch.code})
