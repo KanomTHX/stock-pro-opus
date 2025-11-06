@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Search, Package, Grid, List, MapPin } from "lucide-react";
+import { Search, Package, Grid, List, MapPin, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
 
@@ -63,6 +63,12 @@ const Products = () => {
     brand_id: "",
   });
   const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
+  const [addCategoryDialogOpen, setAddCategoryDialogOpen] = useState(false);
+  const [addBrandDialogOpen, setAddBrandDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryDescription, setNewCategoryDescription] = useState("");
+  const [newBrandName, setNewBrandName] = useState("");
+  const [newBrandDescription, setNewBrandDescription] = useState("");
 
   useEffect(() => {
     fetchProducts();
@@ -210,6 +216,60 @@ const Products = () => {
     },
     onError: (error: Error) => {
       console.error("Mutation error:", error);
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
+    },
+  });
+
+  const addCategory = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("categories")
+        .insert({
+          name: newCategoryName,
+          description: newCategoryDescription || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("เพิ่มหมวดหมู่เรียบร้อย");
+      fetchCategories();
+      setEditProduct({ ...editProduct, category_id: data.id });
+      setNewCategoryName("");
+      setNewCategoryDescription("");
+      setAddCategoryDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
+    },
+  });
+
+  const addBrand = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from("brands")
+        .insert({
+          name: newBrandName,
+          description: newBrandDescription || null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("เพิ่มยี่ห้อเรียบร้อย");
+      fetchBrands();
+      setEditProduct({ ...editProduct, brand_id: data.id });
+      setNewBrandName("");
+      setNewBrandDescription("");
+      setAddBrandDialogOpen(false);
+    },
+    onError: (error: Error) => {
       toast.error(`เกิดข้อผิดพลาด: ${error.message}`);
     },
   });
@@ -465,39 +525,61 @@ const Products = () => {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-category">หมวดหมู่</Label>
-                <Select
-                  value={editProduct.category_id}
-                  onValueChange={(value) => setEditProduct({ ...editProduct, category_id: value })}
-                >
-                  <SelectTrigger id="edit-category">
-                    <SelectValue placeholder="เลือกหมวดหมู่" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={editProduct.category_id}
+                    onValueChange={(value) => setEditProduct({ ...editProduct, category_id: value })}
+                  >
+                    <SelectTrigger id="edit-category" className="flex-1">
+                      <SelectValue placeholder="เลือกหมวดหมู่" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => setAddCategoryDialogOpen(true)}
+                    title="เพิ่มหมวดหมู่ใหม่"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-brand">ยี่ห้อ</Label>
-                <Select
-                  value={editProduct.brand_id}
-                  onValueChange={(value) => setEditProduct({ ...editProduct, brand_id: value })}
-                >
-                  <SelectTrigger id="edit-brand">
-                    <SelectValue placeholder="เลือกยี่ห้อ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {brands.map((brand) => (
-                      <SelectItem key={brand.id} value={brand.id}>
-                        {brand.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select
+                    value={editProduct.brand_id}
+                    onValueChange={(value) => setEditProduct({ ...editProduct, brand_id: value })}
+                  >
+                    <SelectTrigger id="edit-brand" className="flex-1">
+                      <SelectValue placeholder="เลือกยี่ห้อ" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brands.map((brand) => (
+                        <SelectItem key={brand.id} value={brand.id}>
+                          {brand.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    onClick={() => setAddBrandDialogOpen(true)}
+                    title="เพิ่มยี่ห้อใหม่"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -622,6 +704,120 @@ const Products = () => {
                 disabled={updateProduct.isPending}
               >
                 {updateProduct.isPending ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Category Dialog */}
+      <Dialog open={addCategoryDialogOpen} onOpenChange={setAddCategoryDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เพิ่มหมวดหมู่ใหม่</DialogTitle>
+            <DialogDescription>เพิ่มหมวดหมู่สินค้าใหม่ลงในระบบ</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-category-name">ชื่อหมวดหมู่ *</Label>
+              <Input
+                id="new-category-name"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="เช่น โต๊ะ, เก้าอี้"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-category-description">รายละเอียด</Label>
+              <Textarea
+                id="new-category-description"
+                value={newCategoryDescription}
+                onChange={(e) => setNewCategoryDescription(e.target.value)}
+                placeholder="รายละเอียดของหมวดหมู่"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAddCategoryDialogOpen(false);
+                  setNewCategoryName("");
+                  setNewCategoryDescription("");
+                }}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!newCategoryName.trim()) {
+                    toast.error("กรุณากรอกชื่อหมวดหมู่");
+                    return;
+                  }
+                  addCategory.mutate();
+                }}
+                disabled={addCategory.isPending}
+              >
+                {addCategory.isPending ? "กำลังบันทึก..." : "บันทึก"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Brand Dialog */}
+      <Dialog open={addBrandDialogOpen} onOpenChange={setAddBrandDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>เพิ่มยี่ห้อใหม่</DialogTitle>
+            <DialogDescription>เพิ่มยี่ห้อสินค้าใหม่ลงในระบบ</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-brand-name">ชื่อยี่ห้อ *</Label>
+              <Input
+                id="new-brand-name"
+                value={newBrandName}
+                onChange={(e) => setNewBrandName(e.target.value)}
+                placeholder="เช่น IKEA, Index Living Mall"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="new-brand-description">รายละเอียด</Label>
+              <Textarea
+                id="new-brand-description"
+                value={newBrandDescription}
+                onChange={(e) => setNewBrandDescription(e.target.value)}
+                placeholder="รายละเอียดของยี่ห้อ"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAddBrandDialogOpen(false);
+                  setNewBrandName("");
+                  setNewBrandDescription("");
+                }}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  if (!newBrandName.trim()) {
+                    toast.error("กรุณากรอกชื่อยี่ห้อ");
+                    return;
+                  }
+                  addBrand.mutate();
+                }}
+                disabled={addBrand.isPending}
+              >
+                {addBrand.isPending ? "กำลังบันทึก..." : "บันทึก"}
               </Button>
             </div>
           </div>
