@@ -62,6 +62,7 @@ const Products = () => {
     category_id: "",
     brand_id: "",
   });
+  const [selectedBranches, setSelectedBranches] = useState<string[]>([]);
 
   useEffect(() => {
     fetchProducts();
@@ -129,6 +130,7 @@ const Products = () => {
       
       console.log("Updating product:", selectedProduct.id, editProduct);
       
+      // Update product details
       const { data, error } = await supabase
         .from("products")
         .update({
@@ -151,6 +153,50 @@ const Products = () => {
       if (error) {
         console.error("Update error:", error);
         throw error;
+      }
+
+      // Get current branches for this product
+      const { data: currentStock } = await supabase
+        .from("stock_by_branch")
+        .select("branch_id")
+        .eq("product_id", selectedProduct.id);
+
+      const currentBranchIds = currentStock?.map(s => s.branch_id) || [];
+      
+      // Find branches to add and remove
+      const branchesToAdd = selectedBranches.filter(b => !currentBranchIds.includes(b));
+      const branchesToRemove = currentBranchIds.filter(b => !selectedBranches.includes(b));
+
+      // Add new branches
+      if (branchesToAdd.length > 0) {
+        const { error: insertError } = await supabase
+          .from("stock_by_branch")
+          .insert(
+            branchesToAdd.map(branch_id => ({
+              product_id: selectedProduct.id,
+              branch_id: branch_id,
+              qty: 0,
+            }))
+          );
+
+        if (insertError) {
+          console.error("Error adding branches:", insertError);
+          throw insertError;
+        }
+      }
+
+      // Remove branches
+      if (branchesToRemove.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("stock_by_branch")
+          .delete()
+          .eq("product_id", selectedProduct.id)
+          .in("branch_id", branchesToRemove);
+
+        if (deleteError) {
+          console.error("Error removing branches:", deleteError);
+          throw deleteError;
+        }
       }
       
       console.log("Update successful:", data);
@@ -184,6 +230,9 @@ const Products = () => {
       category_id: product.category_id || "",
       brand_id: product.brand_id || "",
     });
+    // Set selected branches from stock_by_branch
+    const branchIds = product.stock_by_branch?.map(s => s.branch_id) || [];
+    setSelectedBranches(branchIds);
     setEditDialogOpen(true);
   };
 
@@ -520,6 +569,36 @@ const Products = () => {
                   onCheckedChange={(checked) => setEditProduct({ ...editProduct, is_active: checked })}
                 />
                 <Label htmlFor="edit-active">เปิดใช้งาน</Label>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>สาขาที่มีสินค้านี้</Label>
+              <div className="border rounded-md p-4 space-y-2 max-h-48 overflow-y-auto">
+                {branches.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">ไม่มีสาขาในระบบ</p>
+                ) : (
+                  branches.map((branch) => (
+                    <div key={branch.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`branch-${branch.id}`}
+                        checked={selectedBranches.includes(branch.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedBranches([...selectedBranches, branch.id]);
+                          } else {
+                            setSelectedBranches(selectedBranches.filter(id => id !== branch.id));
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-input"
+                      />
+                      <Label htmlFor={`branch-${branch.id}`} className="cursor-pointer font-normal">
+                        {branch.name} ({branch.code})
+                      </Label>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
