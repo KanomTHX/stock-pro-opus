@@ -13,6 +13,8 @@ import GI from "./pages/GI";
 import Transfer from "./pages/Transfer";
 import NotFound from "./pages/NotFound";
 
+import MovementLogs from "./pages/MovementLogs";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -31,6 +33,7 @@ const App = () => (
             <Route path="/grn" element={<GRN />} />
             <Route path="/gi" element={<GI />} />
             <Route path="/transfer" element={<Transfer />} />
+            <Route path="/movement-logs" element={<MovementLogs />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
