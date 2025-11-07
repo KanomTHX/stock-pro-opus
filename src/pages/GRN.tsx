@@ -466,6 +466,34 @@ export default function GRN() {
       toast.error("กรุณาเพิ่มรายการสินค้า");
       return;
     }
+    
+    // ตรวจสอบว่าทุก item มี Serial Number ครบถ้วน
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (!item.product_id) {
+        toast.error(`กรุณาเลือกสินค้าสำหรับรายการที่ ${i + 1}`);
+        return;
+      }
+      if (item.qty <= 0) {
+        toast.error(`จำนวนสินค้าต้องมากกว่า 0 สำหรับรายการที่ ${i + 1}`);
+        return;
+      }
+      if (!item.sn_list || item.sn_list.length === 0) {
+        toast.error(`กรุณาระบุ Serial Number สำหรับ ${item.product_name || 'สินค้า'} (รายการที่ ${i + 1})`);
+        return;
+      }
+      if (item.sn_list.length !== item.qty) {
+        toast.error(`จำนวน Serial Number (${item.sn_list.length}) ไม่ตรงกับจำนวนสินค้า (${item.qty}) สำหรับ ${item.product_name || 'สินค้า'}`);
+        return;
+      }
+      // ตรวจสอบว่า Serial Number ไม่ซ้ำกันภายในรายการเดียวกัน
+      const uniqueSN = new Set(item.sn_list.filter(sn => sn.trim() !== ''));
+      if (uniqueSN.size !== item.sn_list.length) {
+        toast.error(`พบ Serial Number ซ้ำกันในรายการ ${item.product_name || 'สินค้า'}`);
+        return;
+      }
+    }
+    
     createGRN.mutate();
   };
 
@@ -675,9 +703,9 @@ export default function GRN() {
               </div>
             </div>
 
-            <div className="space-y-4">
+              <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label>รายการสินค้า</Label>
+                <Label>รายการสินค้า (ต้องระบุ Serial Number ทุกรายการ) *</Label>
                 <div className="flex gap-2">
                   <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
                     <DialogTrigger asChild>
@@ -843,7 +871,7 @@ export default function GRN() {
                               <Input
                                 id="product-image"
                                 type="file"
-                                accept="image/jpeg,image/jpg,image/png,image/webp"
+                                accept="image/*"
                                 onChange={handleImageChange}
                                 className="hidden"
                               />
@@ -852,10 +880,10 @@ export default function GRN() {
                               </span>
                             </div>
                             {imagePreview && (
-                              <div className="relative w-full h-48 border rounded-lg overflow-hidden">
+                              <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden">
                                 <img
                                   src={imagePreview}
-                                  alt="Preview"
+                                  alt="Product Preview"
                                   className="w-full h-full object-contain"
                                 />
                               </div>
@@ -889,13 +917,13 @@ export default function GRN() {
                             }}
                             disabled={createProduct.isPending}
                           >
-                            {createProduct.isPending ? "กำลังบันทึก..." : "บันทึก"}
+                            {createProduct.isPending ? "กำลังบันทึก..." : "บันทึกสินค้า"}
                           </Button>
                         </div>
                       </div>
                     </DialogContent>
                   </Dialog>
-                  <Button type="button" onClick={addItem} size="sm" variant="outline">
+                  <Button type="button" onClick={addItem}>
                     <Plus className="mr-2 h-4 w-4" />
                     เพิ่มรายการ
                   </Button>
@@ -910,79 +938,134 @@ export default function GRN() {
                       <TableHead className="w-24">จำนวน</TableHead>
                       <TableHead className="w-32">ราคาต่อหน่วย</TableHead>
                       <TableHead className="w-24">VAT %</TableHead>
+                      <TableHead>Serial Numbers (บังคับ) *</TableHead>
                       <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Select
-                            value={item.product_id}
-                            onValueChange={(value) =>
-                              updateItem(index, "product_id", value)
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="เลือกสินค้า" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {products?.map((product) => (
-                                <SelectItem key={product.id} value={product.id}>
-                                  {product.sku} - {product.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={item.qty}
-                            onChange={(e) =>
-                              updateItem(index, "qty", parseInt(e.target.value))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={item.unit_cost}
-                            onChange={(e) =>
-                              updateItem(index, "unit_cost", parseFloat(e.target.value))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            value={item.vat_rate}
-                            onChange={(e) =>
-                              updateItem(index, "vat_rate", parseFloat(e.target.value))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeItem(index)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
+                      <>
+                        <TableRow key={index}>
+                          <TableCell>
+                            <Select
+                              value={item.product_id}
+                              onValueChange={(value) =>
+                                updateItem(index, "product_id", value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="เลือกสินค้า" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {products?.map((product) => (
+                                  <SelectItem key={product.id} value={product.id}>
+                                    {product.sku} - {product.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={(e) =>
+                                updateItem(index, "qty", parseInt(e.target.value))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.unit_cost}
+                              onChange={(e) =>
+                                updateItem(index, "unit_cost", parseFloat(e.target.value))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={item.vat_rate}
+                              onChange={(e) =>
+                                updateItem(index, "vat_rate", parseFloat(e.target.value))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-col gap-1">
+                              <div className="text-xs font-medium text-muted-foreground">
+                                {item.sn_list.length} / {item.qty} SN
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const newItems = [...items];
+                                  // Auto-generate if empty
+                                  if (newItems[index].sn_list.length === 0) {
+                                    const serialNumbers = [];
+                                    for (let i = 0; i < newItems[index].qty; i++) {
+                                      serialNumbers.push(generateSerialNumber());
+                                    }
+                                    newItems[index].sn_list = serialNumbers;
+                                    setItems(newItems);
+                                  }
+                                }}
+                              >
+                                {item.sn_list.length > 0 ? 'แสดง SN' : 'สร้าง SN อัตโนมัติ'}
+                              </Button>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeItem(index)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                        {item.sn_list.length > 0 && (
+                          <TableRow key={`${index}-sn`}>
+                            <TableCell colSpan={6} className="bg-muted/30">
+                              <div className="p-2">
+                                <Label className="text-xs font-semibold mb-2 block">
+                                  Serial Numbers สำหรับ {item.product_name || 'สินค้า'} ({item.sn_list.length} รายการ)
+                                </Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {item.sn_list.map((sn, snIndex) => (
+                                    <Input
+                                      key={snIndex}
+                                      value={sn}
+                                      onChange={(e) => {
+                                        const newItems = [...items];
+                                        newItems[index].sn_list[snIndex] = e.target.value;
+                                        setItems(newItems);
+                                      }}
+                                      placeholder={`SN ${snIndex + 1}`}
+                                      className="text-xs"
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </>
                     ))}
                     {items.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           ยังไม่มีรายการสินค้า
                         </TableCell>
                       </TableRow>
