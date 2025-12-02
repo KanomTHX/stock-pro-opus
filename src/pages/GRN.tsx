@@ -330,6 +330,23 @@ export default function GRN() {
 
       // Update stock_by_branch and create movement logs
       for (const item of items) {
+        // Insert serial numbers into serial_numbers table
+        if (item.sn_list && item.sn_list.length > 0) {
+          const serialNumberRecords = item.sn_list.map((sn) => ({
+            sn: sn,
+            product_id: item.product_id,
+            branch_id: formData.branch_id,
+            status: "available",
+            received_date: new Date().toISOString(),
+          }));
+
+          const { error: snError } = await supabase
+            .from("serial_numbers")
+            .insert(serialNumberRecords);
+
+          if (snError) throw snError;
+        }
+
         // Update stock
         const { data: existingStock } = await supabase
           .from("stock_by_branch")

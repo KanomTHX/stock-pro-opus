@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Plus, Trash2, PackageMinus } from "lucide-react";
+import SerialNumberSelector from "@/components/SerialNumberSelector";
 
 interface GIItem {
   product_id: string;
@@ -74,6 +75,13 @@ export default function GI() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("User not authenticated");
 
+      // Validate SNs
+      for (const item of items) {
+        if (item.sn_list.length !== item.qty) {
+          throw new Error(`กรุณาเลือก SN ให้ครบถ้วนสำหรับสินค้า ${item.product_name}`);
+        }
+      }
+
       // Generate GI number
       const giNo = `GI-${Date.now()}`;
 
@@ -106,6 +114,21 @@ export default function GI() {
         .insert(itemsToInsert);
 
       if (itemsError) throw itemsError;
+
+      // Update serial numbers status to 'issued'
+      for (const item of items) {
+        for (const sn of item.sn_list) {
+          await supabase
+            .from("serial_numbers")
+            .update({ 
+              status: "issued",
+              issued_date: new Date().toISOString()
+            })
+            .eq("sn", sn)
+            .eq("product_id", item.product_id)
+            .eq("branch_id", formData.branch_id);
+        }
+      }
 
       // Create movement logs
       for (const item of items) {
@@ -265,6 +288,7 @@ export default function GI() {
                     <TableRow>
                       <TableHead>สินค้า</TableHead>
                       <TableHead className="w-32">จำนวน</TableHead>
+                      <TableHead>Serial Numbers</TableHead>
                       <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -299,6 +323,17 @@ export default function GI() {
                               updateItem(index, "qty", parseInt(e.target.value))
                             }
                           />
+                        </TableCell>
+                        <TableCell>
+                          {item.product_id && formData.branch_id && (
+                            <SerialNumberSelector
+                              productId={item.product_id}
+                              branchId={formData.branch_id}
+                              requiredQty={item.qty}
+                              selectedSNs={item.sn_list}
+                              onSNsChange={(sns) => updateItem(index, "sn_list", sns)}
+                            />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button
