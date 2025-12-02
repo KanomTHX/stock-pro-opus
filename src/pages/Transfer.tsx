@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Trash2, ArrowRightLeft, CheckCircle, Truck } from "lucide-react";
+import SerialNumberSelector from "@/components/SerialNumberSelector";
 
 interface TransferItem {
   product_id: string;
@@ -76,6 +77,13 @@ export default function Transfer() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("User not authenticated");
 
+      // Validate SNs
+      for (const item of items) {
+        if (item.sn_list.length !== item.qty) {
+          throw new Error(`กรุณาเลือก SN ให้ครบถ้วนสำหรับสินค้า ${item.product_name}`);
+        }
+      }
+
       // Generate Transfer number
       const transferNo = `TR-${Date.now()}`;
 
@@ -108,6 +116,18 @@ export default function Transfer() {
         .insert(itemsToInsert);
 
       if (itemsError) throw itemsError;
+
+      // Update serial numbers status to 'transferred'
+      for (const item of items) {
+        for (const sn of item.sn_list) {
+          await supabase
+            .from("serial_numbers")
+            .update({ status: "transferred" })
+            .eq("sn", sn)
+            .eq("product_id", item.product_id)
+            .eq("branch_id", formData.from_branch_id);
+        }
+      }
 
       return transferHeader;
     },
@@ -189,6 +209,16 @@ export default function Transfer() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("User not authenticated");
 
+      // Get transfer details
+      const { data: transfer, error: transferError } = await supabase
+        .from("transfer_headers")
+        .select("*, transfer_items(*)")
+        .eq("id", transferId)
+        .single();
+
+      if (transferError) throw transferError;
+
+      // Update transfer status
       const { error } = await supabase
         .from("transfer_headers")
         .update({
@@ -200,15 +230,23 @@ export default function Transfer() {
 
       if (error) throw error;
 
-      // Create movement log for transfer_in
-      const { data: transfer } = await supabase
-        .from("transfer_headers")
-        .select("*, transfer_items(*)")
-        .eq("id", transferId)
-        .single();
-
+      // Update serial numbers: move to destination branch
       if (transfer) {
         for (const item of transfer.transfer_items) {
+          if (item.sn_list && item.sn_list.length > 0) {
+            for (const sn of item.sn_list) {
+              await supabase
+                .from("serial_numbers")
+                .update({
+                  branch_id: transfer.to_branch_id,
+                  status: "available",
+                })
+                .eq("sn", sn)
+                .eq("product_id", item.product_id);
+            }
+          }
+
+          // Create movement log for transfer_in
           await supabase.from("movement_logs").insert({
             action: "transfer_in",
             ref_table: "transfer_headers",
@@ -368,6 +406,7 @@ export default function Transfer() {
                     <TableRow>
                       <TableHead>สินค้า</TableHead>
                       <TableHead className="w-32">จำนวน</TableHead>
+                      <TableHead>Serial Numbers</TableHead>
                       <TableHead className="w-20"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -402,6 +441,17 @@ export default function Transfer() {
                               updateItem(index, "qty", parseInt(e.target.value))
                             }
                           />
+                        </TableCell>
+                        <TableCell>
+                          {item.product_id && formData.from_branch_id && (
+                            <SerialNumberSelector
+                              productId={item.product_id}
+                              branchId={formData.from_branch_id}
+                              requiredQty={item.qty}
+                              selectedSNs={item.sn_list}
+                              onSNsChange={(sns) => updateItem(index, "sn_list", sns)}
+                            />
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button

@@ -516,6 +516,57 @@ export type Database = {
           },
         ]
       }
+      serial_numbers: {
+        Row: {
+          branch_id: string | null
+          created_at: string | null
+          id: string
+          issued_date: string | null
+          product_id: string
+          received_date: string | null
+          sn: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id?: string | null
+          created_at?: string | null
+          id?: string
+          issued_date?: string | null
+          product_id: string
+          received_date?: string | null
+          sn: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string | null
+          created_at?: string | null
+          id?: string
+          issued_date?: string | null
+          product_id?: string
+          received_date?: string | null
+          sn?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "serial_numbers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "serial_numbers_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stock_by_branch: {
         Row: {
           branch_id: string
