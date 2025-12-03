@@ -425,12 +425,12 @@ export default function SerialNumbers() {
             </div>
             <div>
               <label className="text-sm font-medium">สาขา</label>
-              <Select value={editBranch} onValueChange={setEditBranch}>
+              <Select value={editBranch || "_none"} onValueChange={(val) => setEditBranch(val === "_none" ? "" : val)}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="เลือกสาขา" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">ไม่ระบุ</SelectItem>
+                  <SelectItem value="_none">ไม่ระบุ</SelectItem>
                   {branches.map((branch) => (
                     <SelectItem key={branch.id} value={branch.id}>
                       {branch.name}
