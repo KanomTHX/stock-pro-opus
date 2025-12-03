@@ -12,8 +12,8 @@ import GRN from "./pages/GRN";
 import GI from "./pages/GI";
 import Transfer from "./pages/Transfer";
 import NotFound from "./pages/NotFound";
-
 import MovementLogs from "./pages/MovementLogs";
+import SerialNumbers from "./pages/SerialNumbers";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +33,7 @@ const App = () => (
             <Route path="/grn" element={<GRN />} />
             <Route path="/gi" element={<GI />} />
             <Route path="/transfer" element={<Transfer />} />
+            <Route path="/serial-numbers" element={<SerialNumbers />} />
             <Route path="/movement-logs" element={<MovementLogs />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
