@@ -9,8 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, ArrowRightLeft, CheckCircle, Truck } from "lucide-react";
+import { Plus, Trash2, ArrowRightLeft, CheckCircle, Truck, Eye } from "lucide-react";
 import SerialNumberSelector from "@/components/SerialNumberSelector";
 
 interface TransferItem {
@@ -28,6 +29,9 @@ export default function Transfer() {
     to_branch_id: "",
     note: "",
   });
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedTransfer, setSelectedTransfer] = useState<any>(null);
+  const [transferItems, setTransferItems] = useState<any[]>([]);
 
   const { data: branches } = useQuery({
     queryKey: ["branches"],
@@ -66,11 +70,21 @@ export default function Transfer() {
           to_branch:branches!transfer_headers_to_branch_id_fkey(name)
         `)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(5);
       if (error) throw error;
       return data;
     },
   });
+
+  const viewTransferDetails = async (transfer: any) => {
+    setSelectedTransfer(transfer);
+    const { data } = await supabase
+      .from("transfer_items")
+      .select(`*, products(name, sku)`)
+      .eq("transfer_id", transfer.id);
+    setTransferItems(data || []);
+    setDetailDialogOpen(true);
+  };
 
   const createTransfer = useMutation({
     mutationFn: async () => {
@@ -512,6 +526,7 @@ export default function Transfer() {
                 <TableHead>วันที่สร้าง</TableHead>
                 <TableHead>สถานะ</TableHead>
                 <TableHead>การจัดการ</TableHead>
+                <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -552,11 +567,16 @@ export default function Transfer() {
                       )}
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" onClick={() => viewTransferDetails(transfer)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {(!transferList || transferList.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     ยังไม่มีประวัติการโอนสินค้า
                   </TableCell>
                 </TableRow>
@@ -565,6 +585,41 @@ export default function Transfer() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>รายละเอียดใบโอนสินค้า {selectedTransfer?.transfer_no}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><span className="text-muted-foreground">จากสาขา:</span> {selectedTransfer?.from_branch?.name}</div>
+              <div><span className="text-muted-foreground">ไปยังสาขา:</span> {selectedTransfer?.to_branch?.name}</div>
+              <div><span className="text-muted-foreground">วันที่สร้าง:</span> {selectedTransfer?.created_at && new Date(selectedTransfer.created_at).toLocaleString("th-TH")}</div>
+              <div><span className="text-muted-foreground">สถานะ:</span> {getStatusBadge(selectedTransfer?.status)}</div>
+              {selectedTransfer?.note && <div className="col-span-2"><span className="text-muted-foreground">หมายเหตุ:</span> {selectedTransfer.note}</div>}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>สินค้า</TableHead>
+                  <TableHead>จำนวน</TableHead>
+                  <TableHead>Serial Numbers</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {transferItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.products?.sku} - {item.products?.name}</TableCell>
+                    <TableCell>{item.qty}</TableCell>
+                    <TableCell className="text-xs">{item.sn_list?.join(", ") || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

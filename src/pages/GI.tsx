@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Trash2, PackageMinus } from "lucide-react";
+import { Plus, Trash2, PackageMinus, Eye } from "lucide-react";
 import SerialNumberSelector from "@/components/SerialNumberSelector";
 
 interface GIItem {
@@ -27,6 +28,9 @@ export default function GI() {
     purpose: "" as "sale" | "sample" | "service" | "adjustment",
     note: "",
   });
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedGI, setSelectedGI] = useState<any>(null);
+  const [giItems, setGiItems] = useState<any[]>([]);
 
   const { data: branches } = useQuery({
     queryKey: ["branches"],
@@ -64,11 +68,21 @@ export default function GI() {
           branches(name)
         `)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(5);
       if (error) throw error;
       return data;
     },
   });
+
+  const viewGIDetails = async (gi: any) => {
+    setSelectedGI(gi);
+    const { data } = await supabase
+      .from("gi_items")
+      .select(`*, products(name, sku)`)
+      .eq("gi_id", gi.id);
+    setGiItems(data || []);
+    setDetailDialogOpen(true);
+  };
 
   const createGI = useMutation({
     mutationFn: async () => {
@@ -393,6 +407,7 @@ export default function GI() {
                 <TableHead>วัตถุประสงค์</TableHead>
                 <TableHead>วันที่เบิก</TableHead>
                 <TableHead>สถานะ</TableHead>
+                <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -415,11 +430,16 @@ export default function GI() {
                       {gi.status}
                     </span>
                   </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" onClick={() => viewGIDetails(gi)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {(!giList || giList.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     ยังไม่มีประวัติการเบิกสินค้า
                   </TableCell>
                 </TableRow>
@@ -428,6 +448,41 @@ export default function GI() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>รายละเอียดใบเบิกสินค้า {selectedGI?.gi_no}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><span className="text-muted-foreground">สาขา:</span> {selectedGI?.branches?.name}</div>
+              <div><span className="text-muted-foreground">วัตถุประสงค์:</span> {purposeLabels[selectedGI?.purpose as keyof typeof purposeLabels]}</div>
+              <div><span className="text-muted-foreground">วันที่:</span> {selectedGI?.issued_at && new Date(selectedGI.issued_at).toLocaleString("th-TH")}</div>
+              <div><span className="text-muted-foreground">สถานะ:</span> {selectedGI?.status}</div>
+              {selectedGI?.note && <div className="col-span-2"><span className="text-muted-foreground">หมายเหตุ:</span> {selectedGI.note}</div>}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>สินค้า</TableHead>
+                  <TableHead>จำนวน</TableHead>
+                  <TableHead>Serial Numbers</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {giItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.products?.sku} - {item.products?.name}</TableCell>
+                    <TableCell>{item.qty}</TableCell>
+                    <TableCell className="text-xs">{item.sn_list?.join(", ") || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

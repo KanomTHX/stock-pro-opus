@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, PackagePlus, ImagePlus } from "lucide-react";
+import { Plus, Trash2, PackagePlus, ImagePlus, Eye } from "lucide-react";
 
 interface GRNItem {
   product_id: string;
@@ -57,6 +57,9 @@ export default function GRN() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [grnAttachment, setGrnAttachment] = useState<File | null>(null);
   const [grnAttachmentPreview, setGrnAttachmentPreview] = useState<string | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedGRN, setSelectedGRN] = useState<any>(null);
+  const [grnItems, setGrnItems] = useState<any[]>([]);
 
   const { data: suppliers } = useQuery({
     queryKey: ["suppliers"],
@@ -132,11 +135,21 @@ export default function GRN() {
           branches(name)
         `)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(5);
       if (error) throw error;
       return data;
     },
   });
+
+  const viewGRNDetails = async (grn: any) => {
+    setSelectedGRN(grn);
+    const { data } = await supabase
+      .from("grn_items")
+      .select(`*, products(name, sku)`)
+      .eq("grn_id", grn.id);
+    setGrnItems(data || []);
+    setDetailDialogOpen(true);
+  };
 
   const createSupplier = useMutation({
     mutationFn: async () => {
@@ -1126,6 +1139,7 @@ export default function GRN() {
                 <TableHead>สาขา</TableHead>
                 <TableHead>วันที่รับ</TableHead>
                 <TableHead>สถานะ</TableHead>
+                <TableHead className="w-16"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1148,11 +1162,16 @@ export default function GRN() {
                       {grn.status}
                     </span>
                   </TableCell>
+                  <TableCell>
+                    <Button size="sm" variant="ghost" onClick={() => viewGRNDetails(grn)}>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
               {(!grnList || grnList.length === 0) && (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                     ยังไม่มีประวัติการรับสินค้า
                   </TableCell>
                 </TableRow>
@@ -1161,6 +1180,43 @@ export default function GRN() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>รายละเอียดใบรับสินค้า {selectedGRN?.grn_no}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div><span className="text-muted-foreground">ซัพพลายเออร์:</span> {selectedGRN?.suppliers?.name || "-"}</div>
+              <div><span className="text-muted-foreground">สาขา:</span> {selectedGRN?.branches?.name}</div>
+              <div><span className="text-muted-foreground">วันที่รับ:</span> {selectedGRN?.received_at && new Date(selectedGRN.received_at).toLocaleString("th-TH")}</div>
+              <div><span className="text-muted-foreground">สถานะ:</span> {selectedGRN?.status}</div>
+              {selectedGRN?.note && <div className="col-span-2"><span className="text-muted-foreground">หมายเหตุ:</span> {selectedGRN.note}</div>}
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>สินค้า</TableHead>
+                  <TableHead>จำนวน</TableHead>
+                  <TableHead>ราคา/หน่วย</TableHead>
+                  <TableHead>Serial Numbers</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {grnItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.products?.sku} - {item.products?.name}</TableCell>
+                    <TableCell>{item.qty}</TableCell>
+                    <TableCell>{item.unit_cost?.toLocaleString()} บาท</TableCell>
+                    <TableCell className="text-xs max-w-xs truncate">{item.sn_list?.join(", ") || "-"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
