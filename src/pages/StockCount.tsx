@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ClipboardCheck, Plus, Eye, Loader2, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ClipboardCheck, Plus, Eye, Loader2, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronRight } from "lucide-react";
 
 interface Branch {
   id: string;
@@ -39,6 +40,7 @@ interface CountItem {
   system_qty: number;
   counted_qty: number;
   note: string;
+  sn_list: string[];
 }
 
 interface StockCountHeader {
@@ -111,17 +113,17 @@ const StockCount = () => {
       .eq("status", "available");
     
     if (snData && snData.length > 0) {
-      // Group by product_id and count SNs
-      const productMap = new Map<string, { product: any; count: number }>();
+      // Group by product_id and collect SNs
+      const productMap = new Map<string, { product: any; snList: string[] }>();
       
       snData.forEach((sn: any) => {
         const existing = productMap.get(sn.product_id);
         if (existing) {
-          existing.count += 1;
+          existing.snList.push(sn.sn);
         } else {
           productMap.set(sn.product_id, {
             product: sn.products,
-            count: 1,
+            snList: [sn.sn],
           });
         }
       });
@@ -131,9 +133,10 @@ const StockCount = () => {
           product_id: productId,
           product_sku: data.product.sku,
           product_name: data.product.name,
-          system_qty: data.count,
-          counted_qty: data.count,
+          system_qty: data.snList.length,
+          counted_qty: data.snList.length,
           note: "",
+          sn_list: data.snList,
         }))
       );
     } else {
@@ -314,29 +317,56 @@ const StockCount = () => {
                       {countItems.map((item) => {
                         const variance = item.counted_qty - item.system_qty;
                         return (
-                          <TableRow key={item.product_id}>
-                            <TableCell>
-                              <div className="font-medium text-xs">{item.product_sku}</div>
-                              <div className="text-xs text-muted-foreground truncate max-w-[150px]">
-                                {item.product_name}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center font-mono">
-                              {item.system_qty}
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                min={0}
-                                value={item.counted_qty}
-                                onChange={(e) => updateCountedQty(item.product_id, parseInt(e.target.value) || 0)}
-                                className="w-20 text-center"
-                              />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              {getVarianceBadge(variance)}
-                            </TableCell>
-                          </TableRow>
+                          <Collapsible key={item.product_id} asChild>
+                            <>
+                              <TableRow>
+                                <TableCell>
+                                  <div className="flex items-center gap-1">
+                                    <CollapsibleTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                                        <ChevronRight className="h-4 w-4 transition-transform data-[state=open]:rotate-90" />
+                                      </Button>
+                                    </CollapsibleTrigger>
+                                    <div>
+                                      <div className="font-medium text-xs">{item.product_sku}</div>
+                                      <div className="text-xs text-muted-foreground truncate max-w-[130px]">
+                                        {item.product_name}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-center font-mono">
+                                  {item.system_qty}
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    value={item.counted_qty}
+                                    onChange={(e) => updateCountedQty(item.product_id, parseInt(e.target.value) || 0)}
+                                    className="w-20 text-center"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {getVarianceBadge(variance)}
+                                </TableCell>
+                              </TableRow>
+                              <CollapsibleContent asChild>
+                                <TableRow className="bg-muted/30">
+                                  <TableCell colSpan={4} className="py-2">
+                                    <div className="text-xs text-muted-foreground mb-1">รายการ SN ({item.sn_list.length} รายการ):</div>
+                                    <div className="flex flex-wrap gap-1 max-h-[120px] overflow-auto">
+                                      {item.sn_list.map((sn) => (
+                                        <Badge key={sn} variant="outline" className="text-xs font-mono">
+                                          {sn}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              </CollapsibleContent>
+                            </>
+                          </Collapsible>
                         );
                       })}
                     </TableBody>
