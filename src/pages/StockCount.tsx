@@ -103,24 +103,41 @@ const StockCount = () => {
 
   const fetchBranchStock = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("stock_by_branch")
-      .select(`product_id, qty, products(id, sku, name)`)
+    // Fetch serial numbers that are available in this branch
+    const { data: snData } = await supabase
+      .from("serial_numbers")
+      .select(`product_id, sn, products(id, sku, name)`)
       .eq("branch_id", selectedBranch)
-      .gt("qty", 0);
+      .eq("status", "available");
     
-    if (data) {
-      setStockItems(data as any);
+    if (snData && snData.length > 0) {
+      // Group by product_id and count SNs
+      const productMap = new Map<string, { product: any; count: number }>();
+      
+      snData.forEach((sn: any) => {
+        const existing = productMap.get(sn.product_id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          productMap.set(sn.product_id, {
+            product: sn.products,
+            count: 1,
+          });
+        }
+      });
+
       setCountItems(
-        data.map((item: any) => ({
-          product_id: item.product_id,
-          product_sku: item.products.sku,
-          product_name: item.products.name,
-          system_qty: item.qty,
-          counted_qty: item.qty,
+        Array.from(productMap.entries()).map(([productId, data]) => ({
+          product_id: productId,
+          product_sku: data.product.sku,
+          product_name: data.product.name,
+          system_qty: data.count,
+          counted_qty: data.count,
           note: "",
         }))
       );
+    } else {
+      setCountItems([]);
     }
     setLoading(false);
   };
