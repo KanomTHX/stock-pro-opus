@@ -14,6 +14,7 @@ import Transfer from "./pages/Transfer";
 import NotFound from "./pages/NotFound";
 import MovementLogs from "./pages/MovementLogs";
 import SerialNumbers from "./pages/SerialNumbers";
+import StockCount from "./pages/StockCount";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/grn" element={<GRN />} />
             <Route path="/gi" element={<GI />} />
             <Route path="/transfer" element={<Transfer />} />
+            <Route path="/stock-count" element={<StockCount />} />
             <Route path="/serial-numbers" element={<SerialNumbers />} />
             <Route path="/movement-logs" element={<MovementLogs />} />
           </Route>
