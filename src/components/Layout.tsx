@@ -15,6 +15,7 @@ import {
   X,
   History,
   QrCode,
+  ClipboardCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -82,6 +83,7 @@ const Layout = () => {
     { icon: PackagePlus, label: "รับสินค้า", path: "/grn" },
     { icon: PackageMinus, label: "เบิกสินค้า", path: "/gi" },
     { icon: ArrowRightLeft, label: "โอนสินค้า", path: "/transfer" },
+    { icon: ClipboardCheck, label: "ตรวจนับสต็อก", path: "/stock-count" },
     { icon: QrCode, label: "Serial Numbers", path: "/serial-numbers" },
     { icon: History, label: "ประวัติ", path: "/movement-logs" },
   ];

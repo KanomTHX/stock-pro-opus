@@ -609,6 +609,98 @@ export type Database = {
           },
         ]
       }
+      stock_count_headers: {
+        Row: {
+          branch_id: string
+          count_no: string
+          counted_at: string | null
+          counted_by: string
+          created_at: string | null
+          id: string
+          note: string | null
+          status: Database["public"]["Enums"]["stock_count_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          branch_id: string
+          count_no: string
+          counted_at?: string | null
+          counted_by: string
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          status?: Database["public"]["Enums"]["stock_count_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          branch_id?: string
+          count_no?: string
+          counted_at?: string | null
+          counted_by?: string
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          status?: Database["public"]["Enums"]["stock_count_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_headers_branch_id_fkey"
+            columns: ["branch_id"]
+            isOneToOne: false
+            referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stock_count_items: {
+        Row: {
+          count_id: string
+          counted_qty: number
+          created_at: string | null
+          id: string
+          note: string | null
+          product_id: string
+          system_qty: number
+          variance: number | null
+        }
+        Insert: {
+          count_id: string
+          counted_qty?: number
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          product_id: string
+          system_qty?: number
+          variance?: number | null
+        }
+        Update: {
+          count_id?: string
+          counted_qty?: number
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          product_id?: string
+          system_qty?: number
+          variance?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_count_items_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "stock_count_headers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_count_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           address: string | null
@@ -781,6 +873,7 @@ export type Database = {
         | "transfer_out"
         | "transfer_in"
         | "adjustment"
+      stock_count_status: "draft" | "completed" | "cancelled"
       transfer_status: "pending" | "in_transit" | "completed" | "cancelled"
     }
     CompositeTypes: {
@@ -928,6 +1021,7 @@ export const Constants = {
         "transfer_in",
         "adjustment",
       ],
+      stock_count_status: ["draft", "completed", "cancelled"],
       transfer_status: ["pending", "in_transit", "completed", "cancelled"],
     },
   },
