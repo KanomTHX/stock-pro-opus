@@ -9,9 +9,23 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Search, Package, Grid, List, MapPin, Plus } from "lucide-react";
+import { Search, Package, Grid, List, MapPin, Plus, Image, X, ChevronLeft, ChevronRight, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { useMutation } from "@tanstack/react-query";
+
+interface ProductImage {
+  id: string;
+  url: string;
+  is_primary: boolean;
+  position: number;
+}
+
+interface StockByBranch {
+  branch_id: string;
+  sn_count: number;
+  branch_name: string;
+  branch_code: string;
+}
 
 interface Product {
   id: string;
@@ -30,11 +44,8 @@ interface Product {
   brand_id: string | null;
   categories: { id: string; name: string } | null;
   brands: { id: string; name: string } | null;
-  stock_by_branch?: Array<{
-    branch_id: string;
-    qty: number;
-    branches: { name: string; code: string };
-  }>;
+  stock_by_branch?: StockByBranch[];
+  product_images?: ProductImage[];
 }
 
 const Products = () => {
@@ -69,6 +80,13 @@ const Products = () => {
   const [newCategoryDescription, setNewCategoryDescription] = useState("");
   const [newBrandName, setNewBrandName] = useState("");
   const [newBrandDescription, setNewBrandDescription] = useState("");
+  
+  // Image management states
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<ProductImage[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
     fetchProducts();
@@ -99,26 +117,74 @@ const Products = () => {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      // Fetch products with categories, brands, and product_images
+      const { data: productsData, error } = await supabase
         .from("products")
-        .select(
-          `
+        .select(`
           *,
           categories (id, name),
           brands (id, name),
-          stock_by_branch (
-            branch_id,
-            qty,
-            branches (name, code)
-          )
-        `
-        )
+          product_images (id, url, is_primary, position)
+        `)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      setProducts(data || []);
+      // Fetch serial numbers count per product per branch
+      const { data: snData, error: snError } = await supabase
+        .from("serial_numbers")
+        .select("product_id, branch_id")
+        .eq("status", "available");
+
+      if (snError) throw snError;
+
+      // Fetch branches for mapping
+      const { data: branchesData } = await supabase
+        .from("branches")
+        .select("id, name, code")
+        .eq("is_active", true);
+
+      const branchMap = new Map(branchesData?.map(b => [b.id, b]) || []);
+
+      // Group SN counts by product_id and branch_id
+      const snCountMap = new Map<string, Map<string, number>>();
+      snData?.forEach(sn => {
+        if (!sn.branch_id) return;
+        if (!snCountMap.has(sn.product_id)) {
+          snCountMap.set(sn.product_id, new Map());
+        }
+        const branchCounts = snCountMap.get(sn.product_id)!;
+        branchCounts.set(sn.branch_id, (branchCounts.get(sn.branch_id) || 0) + 1);
+      });
+
+      // Map products with SN counts
+      const productsWithStock = productsData?.map(product => {
+        const branchCounts = snCountMap.get(product.id);
+        const stock_by_branch: StockByBranch[] = [];
+        
+        if (branchCounts) {
+          branchCounts.forEach((count, branchId) => {
+            const branch = branchMap.get(branchId);
+            if (branch) {
+              stock_by_branch.push({
+                branch_id: branchId,
+                sn_count: count,
+                branch_name: branch.name,
+                branch_code: branch.code,
+              });
+            }
+          });
+        }
+
+        return {
+          ...product,
+          stock_by_branch,
+        };
+      }) || [];
+
+      setProducts(productsWithStock);
     } catch (error: any) {
       toast.error("ไม่สามารถโหลดข้อมูลสินค้าได้");
       console.error("Error fetching products:", error);
@@ -293,7 +359,124 @@ const Products = () => {
     // Set selected branches from stock_by_branch
     const branchIds = product.stock_by_branch?.map(s => s.branch_id) || [];
     setSelectedBranches(branchIds);
+    // Set product images
+    setProductImages(product.product_images?.sort((a, b) => a.position - b.position) || []);
     setEditDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedProduct || !e.target.files || e.target.files.length === 0) return;
+    
+    if (productImages.length >= 3) {
+      toast.error("สามารถอัปโหลดรูปภาพได้สูงสุด 3 รูป");
+      return;
+    }
+
+    const file = e.target.files[0];
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      toast.error("รองรับเฉพาะไฟล์ JPEG, PNG, WEBP");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("ขนาดไฟล์ต้องไม่เกิน 10MB");
+      return;
+    }
+
+    setImageUploading(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${selectedProduct.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("product-images")
+        .getPublicUrl(fileName);
+
+      const newPosition = productImages.length;
+      const isPrimary = productImages.length === 0;
+
+      const { data: imageData, error: insertError } = await supabase
+        .from("product_images")
+        .insert({
+          product_id: selectedProduct.id,
+          url: urlData.publicUrl,
+          is_primary: isPrimary,
+          position: newPosition,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      setProductImages([...productImages, imageData]);
+      
+      // Update default_image_url if this is the first image
+      if (isPrimary) {
+        await supabase
+          .from("products")
+          .update({ default_image_url: urlData.publicUrl })
+          .eq("id", selectedProduct.id);
+      }
+
+      toast.success("อัปโหลดรูปภาพเรียบร้อย");
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast.error("อัปโหลดรูปภาพไม่สำเร็จ");
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    try {
+      const imageToDelete = productImages.find(img => img.id === imageId);
+      if (!imageToDelete) return;
+
+      await supabase.from("product_images").delete().eq("id", imageId);
+
+      const remainingImages = productImages.filter(img => img.id !== imageId);
+      
+      // If we deleted the primary image, set the first remaining as primary
+      if (imageToDelete.is_primary && remainingImages.length > 0) {
+        await supabase
+          .from("product_images")
+          .update({ is_primary: true })
+          .eq("id", remainingImages[0].id);
+        
+        remainingImages[0].is_primary = true;
+        
+        await supabase
+          .from("products")
+          .update({ default_image_url: remainingImages[0].url })
+          .eq("id", selectedProduct?.id);
+      } else if (remainingImages.length === 0 && selectedProduct) {
+        await supabase
+          .from("products")
+          .update({ default_image_url: null })
+          .eq("id", selectedProduct.id);
+      }
+
+      setProductImages(remainingImages);
+      toast.success("ลบรูปภาพเรียบร้อย");
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("ลบรูปภาพไม่สำเร็จ");
+    }
+  };
+
+  const openLightbox = (images: ProductImage[], startIndex: number = 0, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (images.length === 0) return;
+    setLightboxImages(images.sort((a, b) => a.position - b.position));
+    setLightboxIndex(startIndex);
+    setLightboxOpen(true);
   };
 
   const filteredProducts = products.filter((product) => {
@@ -411,18 +594,34 @@ const Products = () => {
               <CardContent className={viewMode === "grid" ? "p-4" : "p-4 flex gap-4"}>
                 {/* Image */}
                 <div
-                  className={
+                  className={`relative group cursor-pointer ${
                     viewMode === "grid"
                       ? "w-full h-48 bg-muted rounded-lg mb-4 overflow-hidden"
                       : "w-32 h-32 bg-muted rounded-lg overflow-hidden flex-shrink-0"
-                  }
+                  }`}
+                  onClick={(e) => {
+                    if (product.product_images && product.product_images.length > 0) {
+                      openLightbox(product.product_images, 0, e);
+                    }
+                  }}
                 >
                   {product.default_image_url ? (
-                    <img
-                      src={product.default_image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <>
+                      <img
+                        src={product.default_image_url}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {product.product_images && product.product_images.length > 1 && (
+                        <div className="absolute bottom-2 right-2 bg-background/80 px-2 py-1 rounded text-xs font-medium">
+                          <Image className="w-3 h-3 inline mr-1" />
+                          {product.product_images.length}
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-background/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Image className="w-8 h-8 text-foreground" />
+                      </div>
+                    </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <Package className="w-12 h-12 text-muted-foreground" />
@@ -464,11 +663,11 @@ const Products = () => {
                     <div>หน่วย: {product.unit}</div>
                     {product.stock_by_branch && product.stock_by_branch.length > 0 && (
                       <div className="mt-2 pt-2 border-t">
-                        <div className="font-medium text-foreground mb-1">สต็อกตามสาขา:</div>
-                        {product.stock_by_branch.map((stock: any) => (
+                        <div className="font-medium text-foreground mb-1">สต็อกตามสาขา (SN):</div>
+                        {product.stock_by_branch.map((stock) => (
                           <div key={stock.branch_id} className="flex justify-between">
-                            <span>{stock.branches.name}:</span>
-                            <span className="font-medium">{stock.qty} {product.unit}</span>
+                            <span>{stock.branch_name}:</span>
+                            <span className="font-medium">{stock.sn_count} {product.unit}</span>
                           </div>
                         ))}
                       </div>
@@ -654,6 +853,54 @@ const Products = () => {
               </div>
             </div>
 
+            {/* Product Images */}
+            <div className="space-y-2">
+              <Label>รูปภาพสินค้า (สูงสุด 3 รูป)</Label>
+              <div className="grid grid-cols-3 gap-2">
+                {productImages.map((img, index) => (
+                  <div key={img.id} className="relative aspect-square bg-muted rounded-lg overflow-hidden group">
+                    <img
+                      src={img.url}
+                      alt={`Product image ${index + 1}`}
+                      className="w-full h-full object-cover cursor-pointer"
+                      onClick={() => openLightbox(productImages, index)}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(img.id)}
+                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                    {img.is_primary && (
+                      <Badge className="absolute bottom-1 left-1 text-xs" variant="secondary">
+                        หลัก
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+                {productImages.length < 3 && (
+                  <label className="aspect-square bg-muted rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-muted/80 transition-colors border-2 border-dashed border-border">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                      disabled={imageUploading}
+                    />
+                    {imageUploading ? (
+                      <div className="text-sm text-muted-foreground">กำลังอัปโหลด...</div>
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 text-muted-foreground mb-1" />
+                        <span className="text-xs text-muted-foreground">เพิ่มรูป</span>
+                      </>
+                    )}
+                  </label>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label>สาขาที่มีสินค้านี้</Label>
               <div className="border rounded-md p-4 space-y-2 max-h-48 overflow-y-auto">
@@ -820,6 +1067,54 @@ const Products = () => {
                 {addBrand.isPending ? "กำลังบันทึก..." : "บันทึก"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Lightbox */}
+      <Dialog open={lightboxOpen} onOpenChange={setLightboxOpen}>
+        <DialogContent className="max-w-4xl p-0 bg-background/95 backdrop-blur">
+          <div className="relative">
+            {lightboxImages.length > 0 && (
+              <>
+                <img
+                  src={lightboxImages[lightboxIndex]?.url}
+                  alt={`Image ${lightboxIndex + 1}`}
+                  className="w-full h-auto max-h-[80vh] object-contain"
+                />
+                {lightboxImages.length > 1 && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-2 top-1/2 -translate-y-1/2"
+                      onClick={() => setLightboxIndex((lightboxIndex - 1 + lightboxImages.length) % lightboxImages.length)}
+                    >
+                      <ChevronLeft className="w-6 h-6" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                      onClick={() => setLightboxIndex((lightboxIndex + 1) % lightboxImages.length)}
+                    >
+                      <ChevronRight className="w-6 h-6" />
+                    </Button>
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                      {lightboxImages.map((_, idx) => (
+                        <button
+                          key={idx}
+                          className={`w-2 h-2 rounded-full transition-colors ${
+                            idx === lightboxIndex ? "bg-primary" : "bg-muted-foreground/50"
+                          }`}
+                          onClick={() => setLightboxIndex(idx)}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
