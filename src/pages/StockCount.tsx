@@ -13,7 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ClipboardCheck, Plus, Eye, Loader2, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronRight } from "lucide-react";
+import { ClipboardCheck, Plus, Eye, Loader2, AlertTriangle, CheckCircle2, XCircle, ChevronDown, ChevronRight, Camera, Check } from "lucide-react";
+import { BarcodeScanner } from "@/components/BarcodeScanner";
 
 interface Branch {
   id: string;
@@ -68,6 +69,8 @@ const StockCount = () => {
   const [viewDetail, setViewDetail] = useState<StockCountHeader | null>(null);
   const [detailItems, setDetailItems] = useState<any[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannedSNs, setScannedSNs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchBranches();
@@ -263,6 +266,28 @@ const StockCount = () => {
 
   const hasVariance = countItems.some((item) => item.counted_qty !== item.system_qty);
 
+  const handleScan = (code: string) => {
+    // Check if SN exists in current stock
+    const foundItem = countItems.find(item => item.sn_list.includes(code));
+    if (foundItem) {
+      if (scannedSNs.has(code)) {
+        toast({ title: `SN ${code} ถูกสแกนแล้ว` });
+      } else {
+        setScannedSNs(prev => new Set([...prev, code]));
+        toast({ 
+          title: `สแกน SN ${code} สำเร็จ`, 
+          description: foundItem.product_name 
+        });
+      }
+    } else {
+      toast({ title: `ไม่พบ SN ${code} ในสาขานี้`, variant: "destructive" });
+    }
+  };
+
+  const getScannedCount = (snList: string[]) => {
+    return snList.filter(sn => scannedSNs.has(sn)).length;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -303,6 +328,21 @@ const StockCount = () => {
               </div>
             ) : countItems.length > 0 ? (
               <>
+                {/* Scanner Button */}
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    สแกนแล้ว: {scannedSNs.size} รายการ
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setScannerOpen(true)}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    สแกน SN
+                  </Button>
+                </div>
+                
                 <div className="border rounded-md max-h-[400px] overflow-auto">
                   <Table>
                     <TableHeader>
@@ -354,10 +394,17 @@ const StockCount = () => {
                               <CollapsibleContent asChild>
                                 <TableRow className="bg-muted/30">
                                   <TableCell colSpan={4} className="py-2">
-                                    <div className="text-xs text-muted-foreground mb-1">รายการ SN ({item.sn_list.length} รายการ):</div>
+                                    <div className="text-xs text-muted-foreground mb-1">
+                                      รายการ SN ({item.sn_list.length} รายการ) - สแกนแล้ว: {getScannedCount(item.sn_list)}
+                                    </div>
                                     <div className="flex flex-wrap gap-1 max-h-[120px] overflow-auto">
                                       {item.sn_list.map((sn) => (
-                                        <Badge key={sn} variant="outline" className="text-xs font-mono">
+                                        <Badge 
+                                          key={sn} 
+                                          variant={scannedSNs.has(sn) ? "default" : "outline"} 
+                                          className={`text-xs font-mono ${scannedSNs.has(sn) ? "bg-emerald-500" : ""}`}
+                                        >
+                                          {scannedSNs.has(sn) && <Check className="w-3 h-3 mr-1" />}
                                           {sn}
                                         </Badge>
                                       ))}
@@ -513,6 +560,13 @@ const StockCount = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Barcode Scanner */}
+      <BarcodeScanner
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onScan={handleScan}
+      />
     </div>
   );
 };
