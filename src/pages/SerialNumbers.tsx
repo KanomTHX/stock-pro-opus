@@ -27,7 +27,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Search, QrCode, History, Edit, Filter } from "lucide-react";
+import { Search, QrCode, History, Edit, Filter, Printer } from "lucide-react";
+import { SNLabelPrint } from "@/components/SNLabelPrint";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
@@ -40,7 +41,7 @@ interface SerialNumber {
   received_date: string | null;
   issued_date: string | null;
   created_at: string;
-  product?: { name: string; sku: string };
+  product?: { name: string; sku: string; color?: string };
   branch?: { name: string; code: string };
 }
 
@@ -100,6 +101,9 @@ export default function SerialNumbers() {
   const [selectedSN, setSelectedSN] = useState<SerialNumber | null>(null);
   const [movementHistory, setMovementHistory] = useState<MovementLog[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  
+  // Print dialog state
+  const [printDialogOpen, setPrintDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -113,7 +117,7 @@ export default function SerialNumbers() {
           .from("serial_numbers")
           .select(`
             *,
-            product:products(name, sku),
+            product:products(name, sku, color),
             branch:branches(name, code)
           `)
           .order("created_at", { ascending: false }),
@@ -236,9 +240,20 @@ export default function SerialNumbers() {
             ค้นหา, ดู และแก้ไขสถานะ Serial Numbers
           </p>
         </div>
-        <Badge variant="outline" className="text-sm">
-          ทั้งหมด {serialNumbers.length} รายการ
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setPrintDialogOpen(true)}
+            disabled={filteredSerialNumbers.length === 0}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            พิมพ์ป้าย
+          </Button>
+          <Badge variant="outline" className="text-sm">
+            ทั้งหมด {serialNumbers.length} รายการ
+          </Badge>
+        </div>
       </div>
 
       {/* Filters */}
@@ -516,6 +531,18 @@ export default function SerialNumbers() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Print Labels Dialog */}
+      <SNLabelPrint
+        open={printDialogOpen}
+        onClose={() => setPrintDialogOpen(false)}
+        items={filteredSerialNumbers.map(sn => ({
+          sn: sn.sn,
+          productName: sn.product?.name || "",
+          productSku: sn.product?.sku || "",
+          color: sn.product?.color || undefined,
+        }))}
+      />
     </div>
   );
 }
