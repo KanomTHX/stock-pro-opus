@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Printer, X } from "lucide-react";
 import { useState } from "react";
+import JsBarcode from "jsbarcode";
 
 interface SNItem {
   sn: string;
@@ -22,6 +23,23 @@ interface SNLabelPrintProps {
 export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
   const [selectedSNs, setSelectedSNs] = useState<Set<string>>(new Set(items.map(i => i.sn)));
   const printRef = useRef<HTMLDivElement>(null);
+  const barcodeRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    if (barcodeRef.current && items[0]?.sn) {
+      try {
+        JsBarcode(barcodeRef.current, items[0].sn, {
+          format: "CODE128",
+          width: 1,
+          height: 20,
+          displayValue: false,
+          margin: 0,
+        });
+      } catch (e) {
+        console.error("Barcode error:", e);
+      }
+    }
+  }, [items]);
 
   const toggleSelect = (sn: string) => {
     const newSet = new Set(selectedSNs);
@@ -41,9 +59,25 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
     setSelectedSNs(new Set());
   };
 
-  const truncateName = (name: string, maxLength: number = 18) => {
+  const truncateName = (name: string, maxLength: number = 14) => {
     if (name.length <= maxLength) return name;
     return name.substring(0, maxLength - 2) + "..";
+  };
+
+  const generateBarcodeSVG = (sn: string) => {
+    const canvas = document.createElement("canvas");
+    try {
+      JsBarcode(canvas, sn, {
+        format: "CODE128",
+        width: 1.2,
+        height: 22,
+        displayValue: false,
+        margin: 0,
+      });
+      return canvas.toDataURL("image/png");
+    } catch (e) {
+      return "";
+    }
   };
 
   const handlePrint = () => {
@@ -53,13 +87,17 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    const labelsHtml = selectedItems.map(item => `
-      <div class="label">
-        <div class="product-name">${truncateName(item.productName)}</div>
-        <div class="sn-code">${item.sn}</div>
-        ${item.color ? `<div class="color">สี: ${item.color}</div>` : ''}
-      </div>
-    `).join("");
+    const labelsHtml = selectedItems.map(item => {
+      const barcodeDataUrl = generateBarcodeSVG(item.sn);
+      return `
+        <div class="label">
+          <div class="product-name">${truncateName(item.productName)}</div>
+          ${barcodeDataUrl ? `<img class="barcode" src="${barcodeDataUrl}" alt="barcode" />` : ''}
+          <div class="sn-code">${item.sn}</div>
+          ${item.color ? `<div class="color">สี: ${item.color}</div>` : ''}
+        </div>
+      `;
+    }).join("");
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -69,23 +107,23 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
         <style>
           @page {
             size: auto;
-            margin: 5mm;
+            margin: 3mm;
           }
           body {
             margin: 0;
             padding: 0;
-            font-family: 'Kanit', sans-serif;
+            font-family: 'Kanit', Arial, sans-serif;
           }
           .labels-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 2mm;
+            gap: 1mm;
           }
           .label {
             width: 38mm;
             height: 25mm;
-            border: 0.5px solid #ccc;
-            padding: 2mm;
+            border: 0.3px solid #ccc;
+            padding: 1.5mm;
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -93,28 +131,38 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
             align-items: center;
             text-align: center;
             page-break-inside: avoid;
+            overflow: hidden;
           }
           .product-name {
-            font-size: 7pt;
+            font-size: 6pt;
             font-weight: 500;
-            line-height: 1.2;
-            margin-bottom: 1mm;
+            line-height: 1.1;
+            margin-bottom: 0.5mm;
             word-break: break-word;
+            max-width: 100%;
+          }
+          .barcode {
+            width: 32mm;
+            height: 6mm;
+            object-fit: contain;
+            margin: 0.5mm 0;
           }
           .sn-code {
-            font-size: 9pt;
-            font-weight: 700;
-            font-family: monospace;
-            letter-spacing: 0.5px;
+            font-size: 5.5pt;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 0.3px;
+            word-break: break-all;
+            max-width: 100%;
           }
           .color {
-            font-size: 6pt;
+            font-size: 5pt;
             color: #666;
-            margin-top: 1mm;
+            margin-top: 0.5mm;
           }
           @media print {
             body { -webkit-print-color-adjust: exact; }
-            .label { border: 0.5px solid #ccc; }
+            .label { border: 0.3px solid #ccc; }
           }
         </style>
       </head>
@@ -129,7 +177,7 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
               window.close();
             };
           };
-        </script>
+        <\/script>
       </body>
       </html>
     `);
@@ -144,6 +192,9 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
             <Printer className="w-5 h-5" />
             พิมพ์ป้าย Serial Number (2.5 x 3.8 cm)
           </DialogTitle>
+          <DialogDescription>
+            เลือก Serial Number ที่ต้องการพิมพ์ป้าย
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
@@ -188,13 +239,14 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
             <div className="text-xs text-muted-foreground mb-2">ตัวอย่างป้าย:</div>
             <div 
               ref={printRef}
-              className="inline-block border border-border bg-background p-2 text-center"
-              style={{ width: "95px", height: "62.5px" }}
+              className="inline-flex flex-col items-center justify-center border border-border bg-background p-1.5 text-center"
+              style={{ width: "144px", height: "95px" }}
             >
-              <div className="text-[7px] font-medium leading-tight truncate">
+              <div className="text-[8px] font-medium leading-tight truncate max-w-full">
                 {items[0] ? truncateName(items[0].productName) : "ชื่อสินค้า"}
               </div>
-              <div className="font-mono text-[9px] font-bold mt-0.5">
+              <svg ref={barcodeRef} className="w-[120px] h-[24px] my-0.5"></svg>
+              <div className="font-mono text-[7px] font-semibold break-all max-w-full leading-tight">
                 {items[0]?.sn || "SN00001"}
               </div>
               {items[0]?.color && (
