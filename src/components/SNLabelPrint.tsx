@@ -1,12 +1,14 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Printer, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Printer, X, Package, List, ChevronDown, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import JsBarcode from "jsbarcode";
 import QRCode from "qrcode";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const SN_LENGTH_THRESHOLD = 12; // Use QR code for SNs longer than this
 
@@ -39,10 +41,38 @@ function QRCodePreview({ sn }: { sn: string }) {
   return <img src={qrDataUrl} alt="QR" className="w-[45px] h-[45px] my-0.5" />;
 }
 
+// Product group interface
+interface ProductGroup {
+  productSku: string;
+  productName: string;
+  color?: string;
+  items: SNItem[];
+}
+
 export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
   const [selectedSNs, setSelectedSNs] = useState<Set<string>>(new Set(items.map(i => i.sn)));
+  const [viewMode, setViewMode] = useState<"products" | "list">("products");
+  const [expandedProducts, setExpandedProducts] = useState<Set<string>>(new Set());
   const printRef = useRef<HTMLDivElement>(null);
   const barcodeRef = useRef<SVGSVGElement>(null);
+
+  // Group items by product
+  const productGroups = useMemo(() => {
+    const groups: Record<string, ProductGroup> = {};
+    items.forEach(item => {
+      const key = `${item.productSku}-${item.color || ""}`;
+      if (!groups[key]) {
+        groups[key] = {
+          productSku: item.productSku,
+          productName: item.productName,
+          color: item.color,
+          items: [],
+        };
+      }
+      groups[key].items.push(item);
+    });
+    return Object.values(groups);
+  }, [items]);
 
   const isLongSNPreview = items[0] && items[0].sn.length > SN_LENGTH_THRESHOLD;
 
@@ -70,6 +100,28 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
       newSet.add(sn);
     }
     setSelectedSNs(newSet);
+  };
+
+  const toggleProductGroup = (group: ProductGroup) => {
+    const allSelected = group.items.every(item => selectedSNs.has(item.sn));
+    const newSet = new Set(selectedSNs);
+    
+    if (allSelected) {
+      group.items.forEach(item => newSet.delete(item.sn));
+    } else {
+      group.items.forEach(item => newSet.add(item.sn));
+    }
+    setSelectedSNs(newSet);
+  };
+
+  const toggleExpanded = (key: string) => {
+    const newSet = new Set(expandedProducts);
+    if (newSet.has(key)) {
+      newSet.delete(key);
+    } else {
+      newSet.add(key);
+    }
+    setExpandedProducts(newSet);
   };
 
   const selectAll = () => {
@@ -232,6 +284,21 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
     printWindow.document.close();
   };
 
+  const getGroupKey = (group: ProductGroup) => `${group.productSku}-${group.color || ""}`;
+
+  const getGroupSelectedCount = (group: ProductGroup) => {
+    return group.items.filter(item => selectedSNs.has(item.sn)).length;
+  };
+
+  const isGroupAllSelected = (group: ProductGroup) => {
+    return group.items.every(item => selectedSNs.has(item.sn));
+  };
+
+  const isGroupPartiallySelected = (group: ProductGroup) => {
+    const count = getGroupSelectedCount(group);
+    return count > 0 && count < group.items.length;
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-lg">
@@ -241,7 +308,7 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
             พิมพ์ป้าย Serial Number (2.5 x 3.8 cm)
           </DialogTitle>
           <DialogDescription>
-            เลือก Serial Number ที่ต้องการพิมพ์ป้าย
+            เลือก Serial Number ที่ต้องการพิมพ์ป้าย - สามารถเลือกตามสินค้าหรือรายการ
           </DialogDescription>
         </DialogHeader>
         
@@ -260,27 +327,111 @@ export function SNLabelPrint({ open, onClose, items }: SNLabelPrintProps) {
             </div>
           </div>
 
-          <ScrollArea className="h-[300px] border rounded-md p-3">
-            <div className="space-y-2">
-              {items.map((item) => (
-                <div
-                  key={item.sn}
-                  className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50"
-                >
-                  <Checkbox
-                    checked={selectedSNs.has(item.sn)}
-                    onCheckedChange={() => toggleSelect(item.sn)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="font-mono text-sm font-medium">{item.sn}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {item.productName} {item.color && `- ${item.color}`}
-                    </div>
-                  </div>
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "products" | "list")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="products" className="flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                ตามสินค้า ({productGroups.length})
+              </TabsTrigger>
+              <TabsTrigger value="list" className="flex items-center gap-2">
+                <List className="w-4 h-4" />
+                รายการ ({items.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Products View - Batch Selection */}
+            <TabsContent value="products" className="mt-4">
+              <ScrollArea className="h-[280px] border rounded-md p-2">
+                <div className="space-y-1">
+                  {productGroups.map((group) => {
+                    const key = getGroupKey(group);
+                    const isExpanded = expandedProducts.has(key);
+                    const selectedCount = getGroupSelectedCount(group);
+                    const allSelected = isGroupAllSelected(group);
+                    const partiallySelected = isGroupPartiallySelected(group);
+
+                    return (
+                      <Collapsible key={key} open={isExpanded} onOpenChange={() => toggleExpanded(key)}>
+                        <div className="flex items-center gap-2 p-2 rounded-md hover:bg-muted/50 border-b">
+                          <Checkbox
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el && partiallySelected) {
+                                (el as HTMLButtonElement).dataset.state = "indeterminate";
+                              }
+                            }}
+                            onCheckedChange={() => toggleProductGroup(group)}
+                          />
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent">
+                              {isExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <div className="flex-1 min-w-0" onClick={() => toggleProductGroup(group)}>
+                            <div className="font-medium text-sm truncate cursor-pointer">
+                              {group.productName}
+                            </div>
+                            <div className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span>{group.productSku}</span>
+                              {group.color && <span>• {group.color}</span>}
+                              <span className="ml-auto">
+                                {selectedCount}/{group.items.length} เลือก
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <CollapsibleContent>
+                          <div className="ml-8 py-1 space-y-1 border-l-2 border-muted pl-3">
+                            {group.items.map((item) => (
+                              <div
+                                key={item.sn}
+                                className="flex items-center gap-2 p-1.5 rounded-md hover:bg-muted/30 text-sm"
+                              >
+                                <Checkbox
+                                  checked={selectedSNs.has(item.sn)}
+                                  onCheckedChange={() => toggleSelect(item.sn)}
+                                />
+                                <span className="font-mono text-xs">{item.sn}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
+              </ScrollArea>
+            </TabsContent>
+
+            {/* List View - Individual Selection */}
+            <TabsContent value="list" className="mt-4">
+              <ScrollArea className="h-[280px] border rounded-md p-3">
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <div
+                      key={item.sn}
+                      className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={selectedSNs.has(item.sn)}
+                        onCheckedChange={() => toggleSelect(item.sn)}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-sm font-medium">{item.sn}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {item.productName} {item.color && `- ${item.color}`}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
 
           {/* Preview */}
           <div className="border rounded-md p-3 bg-muted/30">
