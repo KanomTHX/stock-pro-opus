@@ -273,10 +273,17 @@ const StockCount = () => {
       if (scannedSNs.has(code)) {
         toast({ title: `SN ${code} ถูกสแกนแล้ว` });
       } else {
-        setScannedSNs(prev => new Set([...prev, code]));
+        // Add to scanned set
+        const newScannedSNs = new Set([...scannedSNs, code]);
+        setScannedSNs(newScannedSNs);
+        
+        // Auto-update counted_qty based on scanned SNs for this product
+        const scannedCountForProduct = foundItem.sn_list.filter(sn => newScannedSNs.has(sn)).length;
+        updateCountedQty(foundItem.product_id, scannedCountForProduct);
+        
         toast({ 
           title: `สแกน SN ${code} สำเร็จ`, 
-          description: foundItem.product_name 
+          description: `${foundItem.product_name} (${scannedCountForProduct}/${foundItem.system_qty})` 
         });
       }
     } else {
@@ -287,6 +294,11 @@ const StockCount = () => {
   const getScannedCount = (snList: string[]) => {
     return snList.filter(sn => scannedSNs.has(sn)).length;
   };
+
+  // Reset scanned SNs when branch changes
+  useEffect(() => {
+    setScannedSNs(new Set());
+  }, [selectedBranch]);
 
   return (
     <div className="space-y-6">

@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Camera, X, ScanLine } from "lucide-react";
 
 interface BarcodeScannerProps {
@@ -14,18 +14,16 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  useEffect(() => {
-    if (open && !isScanning) {
-      startScanner();
+  const startScanner = useCallback(async () => {
+    // Wait for DOM element to be ready
+    const element = document.getElementById("barcode-reader");
+    if (!element) {
+      console.log("Waiting for barcode-reader element...");
+      return;
     }
-    return () => {
-      stopScanner();
-    };
-  }, [open]);
 
-  const startScanner = async () => {
     try {
       setError(null);
       const scanner = new Html5Qrcode("barcode-reader");
@@ -52,9 +50,9 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
       setError(err.message || "ไม่สามารถเปิดกล้องได้");
       setIsScanning(false);
     }
-  };
+  }, [onScan]);
 
-  const stopScanner = async () => {
+  const stopScanner = useCallback(async () => {
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop();
@@ -65,7 +63,32 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
       scannerRef.current = null;
     }
     setIsScanning(false);
-  };
+    setIsReady(false);
+  }, []);
+
+  // Handle dialog open state
+  useEffect(() => {
+    if (open) {
+      setIsReady(true);
+    } else {
+      stopScanner();
+    }
+    
+    return () => {
+      stopScanner();
+    };
+  }, [open, stopScanner]);
+
+  // Start scanner when ready and DOM element exists
+  useEffect(() => {
+    if (isReady && open && !isScanning) {
+      // Use timeout to ensure DOM is fully rendered
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isReady, open, isScanning, startScanner]);
 
   const handleClose = () => {
     stopScanner();
@@ -80,11 +103,13 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
             <Camera className="w-5 h-5" />
             สแกน Serial Number
           </DialogTitle>
+          <DialogDescription>
+            หันกล้องไปที่บาร์โค้ดหรือ QR Code ของ Serial Number
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div 
-            ref={containerRef}
-            className="relative overflow-hidden rounded-lg bg-black"
+            className="relative overflow-hidden rounded-lg bg-black min-h-[200px]"
           >
             <div id="barcode-reader" className="w-full" />
             {isScanning && (
@@ -101,10 +126,6 @@ export function BarcodeScanner({ open, onClose, onScan }: BarcodeScannerProps) {
               {error}
             </div>
           )}
-          
-          <p className="text-sm text-muted-foreground text-center">
-            หันกล้องไปที่บาร์โค้ดหรือ QR Code ของ Serial Number
-          </p>
           
           <Button variant="outline" onClick={handleClose} className="w-full">
             <X className="w-4 h-4 mr-2" />
