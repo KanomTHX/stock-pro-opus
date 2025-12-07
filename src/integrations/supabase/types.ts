@@ -89,6 +89,247 @@ export type Database = {
         }
         Relationships: []
       }
+      commissions: {
+        Row: {
+          amount: number
+          commission_type: string
+          contract_id: string | null
+          created_at: string | null
+          employee_id: string
+          id: string
+          payment_id: string | null
+        }
+        Insert: {
+          amount: number
+          commission_type: string
+          contract_id?: string | null
+          created_at?: string | null
+          employee_id: string
+          id?: string
+          payment_id?: string | null
+        }
+        Update: {
+          amount?: number
+          commission_type?: string
+          contract_id?: string | null
+          created_at?: string | null
+          employee_id?: string
+          id?: string
+          payment_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commissions_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commissions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contracts: {
+        Row: {
+          admin_override_reason: string | null
+          contract_no: string
+          created_at: string | null
+          created_by: string | null
+          customer_id: string
+          down_payment: number | null
+          id: string
+          installment_months: number
+          interest_rate: number | null
+          monthly_payment: number
+          principal_amount: number
+          product_id: string
+          salesperson_id: string | null
+          serial_number_id: string
+          start_date: string
+          status: Database["public"]["Enums"]["contract_status"] | null
+          total_amount: number
+          total_interest: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_override_reason?: string | null
+          contract_no: string
+          created_at?: string | null
+          created_by?: string | null
+          customer_id: string
+          down_payment?: number | null
+          id?: string
+          installment_months: number
+          interest_rate?: number | null
+          monthly_payment: number
+          principal_amount: number
+          product_id: string
+          salesperson_id?: string | null
+          serial_number_id: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["contract_status"] | null
+          total_amount: number
+          total_interest?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_override_reason?: string | null
+          contract_no?: string
+          created_at?: string | null
+          created_by?: string | null
+          customer_id?: string
+          down_payment?: number | null
+          id?: string
+          installment_months?: number
+          interest_rate?: number | null
+          monthly_payment?: number
+          principal_amount?: number
+          product_id?: string
+          salesperson_id?: string | null
+          serial_number_id?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["contract_status"] | null
+          total_amount?: number
+          total_interest?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contracts_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contracts_serial_number_id_fkey"
+            columns: ["serial_number_id"]
+            isOneToOne: false
+            referencedRelation: "serial_numbers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          credit_grade: Database["public"]["Enums"]["credit_grade"] | null
+          credit_limit: number | null
+          full_name: string
+          gps_lat: number | null
+          gps_lng: number | null
+          id: string
+          id_card: string
+          is_active: boolean | null
+          occupation: string | null
+          phone: string | null
+          photo_url: string | null
+          salary: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          credit_grade?: Database["public"]["Enums"]["credit_grade"] | null
+          credit_limit?: number | null
+          full_name: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          id_card: string
+          is_active?: boolean | null
+          occupation?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          salary?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          credit_grade?: Database["public"]["Enums"]["credit_grade"] | null
+          credit_limit?: number | null
+          full_name?: string
+          gps_lat?: number | null
+          gps_lng?: number | null
+          id?: string
+          id_card?: string
+          is_active?: boolean | null
+          occupation?: string | null
+          phone?: string | null
+          photo_url?: string | null
+          salary?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      employees: {
+        Row: {
+          collection_commission_pct: number | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          role: string
+          sales_commission_pct: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          collection_commission_pct?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          role: string
+          sales_commission_pct?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          collection_commission_pct?: number | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          role?: string
+          sales_commission_pct?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       gi_headers: {
         Row: {
           branch_id: string
@@ -289,6 +530,47 @@ export type Database = {
           },
         ]
       }
+      guarantors: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          customer_id: string
+          full_name: string
+          id: string
+          id_card: string
+          phone: string | null
+          relationship: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          customer_id: string
+          full_name: string
+          id?: string
+          id_card: string
+          phone?: string | null
+          relationship?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          customer_id?: string
+          full_name?: string
+          id?: string
+          id_card?: string
+          phone?: string | null
+          relationship?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guarantors_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       movement_logs: {
         Row: {
           action: Database["public"]["Enums"]["movement_action"]
@@ -349,6 +631,54 @@ export type Database = {
             columns: ["to_branch_id"]
             isOneToOne: false
             referencedRelation: "branches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          amount: number
+          collector_id: string | null
+          contract_id: string
+          created_at: string | null
+          id: string
+          note: string | null
+          paid_at: string | null
+          payment_no: number
+        }
+        Insert: {
+          amount: number
+          collector_id?: string | null
+          contract_id: string
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          paid_at?: string | null
+          payment_no: number
+        }
+        Update: {
+          amount?: number
+          collector_id?: string | null
+          contract_id?: string
+          created_at?: string | null
+          id?: string
+          note?: string | null
+          paid_at?: string | null
+          payment_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_collector_id_fkey"
+            columns: ["collector_id"]
+            isOneToOne: false
+            referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
             referencedColumns: ["id"]
           },
         ]
@@ -847,6 +1177,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_customer_active_debt: {
+        Args: { customer_uuid: string }
+        Returns: number
+      }
+      get_customer_remaining_credit: {
+        Args: { customer_uuid: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -862,6 +1200,8 @@ export type Database = {
         | "branch_staff"
         | "warehouse_staff"
         | "auditor"
+      contract_status: "active" | "completed" | "defaulted" | "cancelled"
+      credit_grade: "A" | "B" | "C" | "F"
       gi_purpose: "sale" | "sample" | "service" | "adjustment"
       gi_status: "pending" | "completed" | "cancelled"
       grn_status: "draft" | "completed" | "cancelled"
@@ -1009,6 +1349,8 @@ export const Constants = {
         "warehouse_staff",
         "auditor",
       ],
+      contract_status: ["active", "completed", "defaulted", "cancelled"],
+      credit_grade: ["A", "B", "C", "F"],
       gi_purpose: ["sale", "sample", "service", "adjustment"],
       gi_status: ["pending", "completed", "cancelled"],
       grn_status: ["draft", "completed", "cancelled"],

@@ -15,6 +15,13 @@ import NotFound from "./pages/NotFound";
 import MovementLogs from "./pages/MovementLogs";
 import SerialNumbers from "./pages/SerialNumbers";
 import StockCount from "./pages/StockCount";
+// Leasing Module
+import LeasingDashboard from "./pages/leasing/LeasingDashboard";
+import Customers from "./pages/leasing/Customers";
+import Employees from "./pages/leasing/Employees";
+import Contracts from "./pages/leasing/Contracts";
+import NewContract from "./pages/leasing/NewContract";
+import Payments from "./pages/leasing/Payments";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +44,13 @@ const App = () => (
             <Route path="/stock-count" element={<StockCount />} />
             <Route path="/serial-numbers" element={<SerialNumbers />} />
             <Route path="/movement-logs" element={<MovementLogs />} />
+            {/* Leasing Module */}
+            <Route path="/leasing" element={<LeasingDashboard />} />
+            <Route path="/leasing/customers" element={<Customers />} />
+            <Route path="/leasing/employees" element={<Employees />} />
+            <Route path="/leasing/contracts" element={<Contracts />} />
+            <Route path="/leasing/contracts/new" element={<NewContract />} />
+            <Route path="/leasing/payments" element={<Payments />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
